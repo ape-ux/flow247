@@ -7,6 +7,7 @@ import logo from '@/assets/logo-ape-global.jpg';
 const navLinks = [
   { name: 'Solutions', href: '#services' },
   { name: 'Technology', href: '#tech' },
+  { name: 'Integrations', href: '#integrations' },
   { name: 'About', href: '/about' },
   { name: 'Contact Us', href: '#contact' },
 ];
@@ -19,12 +20,15 @@ export function LandingNavbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center">
+          <Link to="/" className="flex items-center gap-3">
             <img 
               src={logo} 
               alt="APE Global" 
-              className="h-10 w-auto rounded-lg ring-2 ring-primary/50 animate-logo-glow"
+              className="h-10 w-auto rounded-lg bg-background ring-1 ring-border/50"
             />
+            <span className="hidden sm:block text-xs text-muted-foreground font-medium">
+              www.apeglobal.io
+            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
