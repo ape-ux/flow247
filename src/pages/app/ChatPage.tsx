@@ -111,16 +111,20 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
+      {/* Ape Bot Photo - Top Right Corner */}
+      <div className="absolute right-4 top-4 z-10">
+        <img 
+          src={apeBot} 
+          alt="APE Bot" 
+          className="h-12 w-12 rounded-full border-2 border-primary/30 object-cover shadow-md"
+        />
+      </div>
+
       {/* Chat Messages */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-4 pt-20">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <img 
-              src={apeBot} 
-              alt="APE Bot" 
-              className="mb-6 h-32 w-32 rounded-full border-4 border-primary/20 object-cover shadow-lg"
-            />
             <h2 className="mb-2 font-display text-2xl font-bold">
               APE <span className="text-primary">Assistant</span>
             </h2>
