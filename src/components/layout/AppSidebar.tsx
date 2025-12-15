@@ -48,7 +48,7 @@ export function AppSidebar() {
           <img 
             src={logo} 
             alt="APE Global" 
-            className="h-10 w-auto rounded-lg ring-2 ring-primary/50 shadow-[0_0_15px_hsl(175_84%_50%/0.4)] hover:shadow-[0_0_25px_hsl(175_84%_50%/0.6)] transition-shadow duration-300"
+            className="h-10 w-auto rounded-lg ring-2 ring-primary/50 animate-logo-glow"
           />
           {!collapsed && (
             <span className="font-display text-lg font-bold text-sidebar-foreground">
