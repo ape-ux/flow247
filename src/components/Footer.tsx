@@ -89,7 +89,7 @@ export function Footer() {
               </li>
               <li className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 mt-0.5 text-primary" />
-                <span>Global Operations</span>
+                <span>150 SE 2nd Avenue, Suite 300-132<br />Miami, FL 33131 USA</span>
               </li>
             </ul>
           </div>
@@ -97,7 +97,7 @@ export function Footer() {
 
         {/* Bottom Bar */}
         <div className="mt-12 border-t border-border/50 pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} APE Global. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Ape Global LLC. All rights reserved.</p>
         </div>
       </div>
     </footer>
