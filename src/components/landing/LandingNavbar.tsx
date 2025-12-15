@@ -20,15 +20,12 @@ export function LandingNavbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3">
+          <Link to="/" className="flex items-center">
             <img 
               src={logo} 
               alt="APE Global" 
               className="h-10 w-auto rounded-lg"
             />
-            <span className="hidden sm:block text-xs text-muted-foreground font-medium">
-              www.apeglobal.io
-            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
