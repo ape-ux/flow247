@@ -7,7 +7,7 @@ import logo from '@/assets/logo-ape-global.jpg';
 const navLinks = [
   { name: 'Solutions', href: '#services' },
   { name: 'Technology', href: '#tech' },
-  { name: 'About', href: '#about' },
+  { name: 'About', href: '/about' },
   { name: 'Contact Us', href: '#contact' },
 ];
 
@@ -27,20 +27,29 @@ export function LandingNavbar() {
             />
           </Link>
 
-          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                className={`text-sm font-medium transition-colors hover:text-[hsl(175,84%,50%)] ${
-                  link.name === 'Contact Us' 
-                    ? 'text-[hsl(175,84%,50%)]' 
-                    : 'text-muted-foreground'
-                }`}
-              >
-                {link.name.toUpperCase()}
-              </a>
+              link.href.startsWith('/') ? (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className={`text-sm font-medium transition-colors hover:text-[hsl(175,84%,50%)] text-muted-foreground`}
+                >
+                  {link.name.toUpperCase()}
+                </Link>
+              ) : (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  className={`text-sm font-medium transition-colors hover:text-[hsl(175,84%,50%)] ${
+                    link.name === 'Contact Us' 
+                      ? 'text-[hsl(175,84%,50%)]' 
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {link.name.toUpperCase()}
+                </a>
+              )
             ))}
           </nav>
 
@@ -70,14 +79,25 @@ export function LandingNavbar() {
           <div className="md:hidden py-4 border-t border-border/50">
             <nav className="flex flex-col gap-4">
               {navLinks.map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  className="text-sm font-medium text-muted-foreground hover:text-[hsl(175,84%,50%)]"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {link.name.toUpperCase()}
-                </a>
+                link.href.startsWith('/') ? (
+                  <Link
+                    key={link.name}
+                    to={link.href}
+                    className="text-sm font-medium text-muted-foreground hover:text-[hsl(175,84%,50%)]"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {link.name.toUpperCase()}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.name}
+                    href={link.href}
+                    className="text-sm font-medium text-muted-foreground hover:text-[hsl(175,84%,50%)]"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {link.name.toUpperCase()}
+                  </a>
+                )
               ))}
               <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
                 <Button 
