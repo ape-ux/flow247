@@ -17,38 +17,40 @@ import SettingsPage from "./pages/app/SettingsPage";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/pricing" element={<Pricing />} />
-            
-            {/* Protected App Routes */}
-            <Route path="/app" element={<AppLayout />}>
-              <Route index element={<Navigate to="/app/chat" replace />} />
-              <Route path="chat" element={<ChatPage />} />
-              <Route path="quotes" element={<QuotesPage />} />
-              <Route path="shipments" element={<ShipmentsPage />} />
-              <Route path="billing" element={<BillingPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
-            
-            {/* Legacy redirects */}
-            <Route path="/dashboard" element={<Navigate to="/app/chat" replace />} />
-            <Route path="/chat" element={<Navigate to="/app/chat" replace />} />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/pricing" element={<Pricing />} />
+              
+              {/* Protected App Routes */}
+              <Route path="/app" element={<AppLayout />}>
+                <Route index element={<Navigate to="/app/chat" replace />} />
+                <Route path="chat" element={<ChatPage />} />
+                <Route path="quotes" element={<QuotesPage />} />
+                <Route path="shipments" element={<ShipmentsPage />} />
+                <Route path="billing" element={<BillingPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+              
+              {/* Legacy redirects */}
+              <Route path="/dashboard" element={<Navigate to="/app/chat" replace />} />
+              <Route path="/chat" element={<Navigate to="/app/chat" replace />} />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </TooltipProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
