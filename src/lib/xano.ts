@@ -107,7 +107,7 @@ class XanoClient {
     return this.request<XanoAuthResponse['user']>('/auth/me');
   }
 
-  // MCP Chat Stream - POST to send messages
+  // MCP Chat Stream - POST to send messages using JSON-RPC 2.0 format
   async sendChatMessage(message: string, llmApiKey?: string): Promise<Response> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -118,16 +118,29 @@ class XanoClient {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${this.authToken}`;
     }
 
-    // Include LLM API key if provided
-    const body: Record<string, string> = { message };
-    if (llmApiKey) {
-      body.llm_api_key = llmApiKey;
-    }
+    // JSON-RPC 2.0 format required by Xano MCP
+    const jsonRpcBody = {
+      jsonrpc: '2.0',
+      id: Date.now(),
+      method: 'sampling/createMessage',
+      params: {
+        messages: [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: message
+            }
+          }
+        ],
+        ...(llmApiKey && { llm_api_key: llmApiKey })
+      }
+    };
 
     return fetch(`${this.mcpBaseUrl}/stream`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(body),
+      body: JSON.stringify(jsonRpcBody),
     });
   }
 
