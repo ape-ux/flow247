@@ -17,11 +17,14 @@ export function LandingFooter() {
 
           {/* Copyright */}
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Ape Global LL. All rights reserved.
+            © {new Date().getFullYear()} APE Global LLC. All rights reserved.
           </p>
 
           {/* Links */}
           <div className="flex items-center gap-6">
+            <Link to="/about" className="text-sm text-muted-foreground hover:text-[hsl(175,84%,50%)] transition-colors">
+              About
+            </Link>
             <Link to="/privacy" className="text-sm text-muted-foreground hover:text-[hsl(175,84%,50%)] transition-colors">
               Privacy Policy
             </Link>
