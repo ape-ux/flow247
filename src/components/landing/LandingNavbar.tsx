@@ -24,7 +24,7 @@ export function LandingNavbar() {
             <img 
               src={logo} 
               alt="APE Global" 
-              className="h-10 w-auto rounded-lg bg-black p-1 ring-1 ring-border/50"
+              className="h-10 w-auto rounded-lg"
             />
             <span className="hidden sm:block text-xs text-muted-foreground font-medium">
               www.apeglobal.io
