@@ -49,7 +49,9 @@ export default function ChatPage() {
       const response = await xano.sendChatMessage(userMessage.content, llmApiKey);
       
       if (!response.ok) {
-        throw new Error('Failed to get response');
+        const errorText = await response.text().catch(() => '');
+        console.error('Chat response not OK:', response.status, errorText);
+        throw new Error(`Failed to get response: ${response.status}`);
       }
 
       const reader = response.body?.getReader();
