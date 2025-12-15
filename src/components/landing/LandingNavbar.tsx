@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Globe } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
+import logo from '@/assets/logo-ape-global.jpg';
 
 const navLinks = [
   { name: 'Solutions', href: '#services' },
@@ -18,20 +19,12 @@ export function LandingNavbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="relative">
-              <Globe className="h-8 w-8 text-[hsl(175,84%,50%)]" />
-              <div className="absolute inset-0 bg-[hsl(175,84%,50%/0.3)] blur-lg" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-display text-xl font-bold">
-                <span className="text-[hsl(175,84%,50%)]">APE</span>
-                <span className="text-foreground"> GLOBAL</span>
-              </span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                Intelligent Systems for Global Shipping
-              </span>
-            </div>
+          <Link to="/" className="flex items-center">
+            <img 
+              src={logo} 
+              alt="APE Global" 
+              className="h-12 w-auto"
+            />
           </Link>
 
           {/* Desktop Navigation */}
