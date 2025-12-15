@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Package, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import { z } from 'zod';
+import logo from '@/assets/logo-ape-global.jpg';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -32,7 +33,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      navigate('/app/chat');
     }
   }, [isAuthenticated, navigate]);
 
@@ -79,7 +80,7 @@ export default function Auth() {
           description: 'You have successfully logged in.',
         });
       }
-      navigate('/dashboard');
+      navigate('/app/chat');
     } catch (error: any) {
       toast({
         title: 'Authentication failed',
@@ -100,13 +101,12 @@ export default function Auth() {
       <div className="container relative z-10 mx-auto flex min-h-screen items-center justify-center px-4 py-16">
         <div className="w-full max-w-md">
           {/* Logo */}
-          <Link to="/" className="mb-8 flex items-center justify-center gap-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <Package className="h-7 w-7 text-primary" />
-            </div>
-            <span className="font-display text-2xl font-bold">
-              APE<span className="text-primary">Global</span>
-            </span>
+          <Link to="/" className="mb-8 flex items-center justify-center">
+            <img 
+              src={logo} 
+              alt="APE Global" 
+              className="h-16 w-auto"
+            />
           </Link>
 
           {/* Auth Card */}

@@ -1,5 +1,6 @@
 // Xano API Configuration
-const XANO_API_BASE = import.meta.env.VITE_XANO_API_BASE || '';
+const XANO_API_BASE = 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:QC35j52Y';
+const XANO_MCP_BASE = 'https://xjlt-4ifj-k7qu.n7e.xano.io/x2/mcp/freight_flow_ai_v1/mcp';
 
 interface XanoAuthResponse {
   authToken: string;
@@ -18,10 +19,12 @@ interface XanoError {
 
 class XanoClient {
   private baseUrl: string;
+  private mcpBaseUrl: string;
   private authToken: string | null = null;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, mcpBaseUrl: string) {
     this.baseUrl = baseUrl;
+    this.mcpBaseUrl = mcpBaseUrl;
     this.authToken = localStorage.getItem('xano_token');
   }
 
@@ -104,13 +107,34 @@ class XanoClient {
     return this.request<XanoAuthResponse['user']>('/auth/me');
   }
 
-  async chatWithAI(message: string, conversationId?: string): Promise<{ response: string; conversationId: string }> {
-    return this.request('/ai/chat', {
+  // MCP Chat Stream - POST to send messages
+  async sendChatMessage(message: string, llmApiKey?: string): Promise<Response> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (this.authToken) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.authToken}`;
+    }
+
+    // Include LLM API key if provided
+    const body: Record<string, string> = { message };
+    if (llmApiKey) {
+      body.llm_api_key = llmApiKey;
+    }
+
+    return fetch(`${this.mcpBaseUrl}/stream`, {
       method: 'POST',
-      body: JSON.stringify({ message, conversationId }),
+      headers,
+      body: JSON.stringify(body),
     });
+  }
+
+  // MCP SSE endpoint for real-time streaming
+  getMcpSseUrl(): string {
+    return `${this.mcpBaseUrl}/sse`;
   }
 }
 
-export const xano = new XanoClient(XANO_API_BASE);
+export const xano = new XanoClient(XANO_API_BASE, XANO_MCP_BASE);
 export type { XanoAuthResponse, XanoError };
