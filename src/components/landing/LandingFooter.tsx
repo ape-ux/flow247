@@ -15,10 +15,15 @@ export function LandingFooter() {
             />
           </Link>
 
-          {/* Copyright */}
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} APE Global LLC. All rights reserved.
-          </p>
+          {/* Copyright & Address */}
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} Ape Global LLC. All rights reserved.
+            </p>
+            <p className="text-xs text-muted-foreground/70 mt-1">
+              150 SE 2nd Avenue, Suite 300-132, Miami, FL 33131 USA
+            </p>
+          </div>
 
           {/* Links */}
           <div className="flex items-center gap-6">
