@@ -111,6 +111,7 @@ class XanoClient {
   async sendChatMessage(message: string, llmApiKey?: string): Promise<Response> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
+      'Accept': 'text/event-stream, application/json',
     };
     
     if (this.authToken) {
