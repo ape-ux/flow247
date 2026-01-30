@@ -16,7 +16,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import logo from '@/assets/logo-ape-global.jpg';
+import { LogoBadge } from '@/components/LogoBadge';
 
 const navItems = [
   { title: 'Chats', url: '/app/chat', icon: MessageSquare },
@@ -44,17 +44,11 @@ export function AppSidebar() {
       collapsible="icon"
     >
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <Link to="/app/chat" className="flex items-center gap-3">
-          <img 
-            src={logo} 
-            alt="APE Global" 
-            className="h-10 w-auto rounded-lg ring-2 ring-primary/50 animate-logo-glow"
+        <Link to="/app/chat" className="flex items-center justify-center">
+          <LogoBadge
+            size="md"
+            className="ring-2 ring-primary/50 animate-logo-glow"
           />
-          {!collapsed && (
-            <span className="font-display text-lg font-bold text-sidebar-foreground">
-              APE<span className="text-primary">Global</span>
-            </span>
-          )}
         </Link>
       </SidebarHeader>
 

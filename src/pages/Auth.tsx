@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import { z } from 'zod';
-import logo from '@/assets/logo-ape-global.jpg';
+import { LogoBadge } from '@/components/LogoBadge';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -102,11 +102,7 @@ export default function Auth() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <Link to="/" className="mb-8 flex items-center justify-center">
-            <img 
-              src={logo} 
-              alt="APE Global" 
-              className="h-16 w-auto"
-            />
+            <LogoBadge size="lg" className="shadow-[0_12px_40px_rgba(0,0,0,0.45)]" />
           </Link>
 
           {/* Auth Card */}
