@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Pricing from "./pages/Pricing";
+import Integrations from "./pages/Integrations";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import About from "./pages/About";
@@ -17,6 +18,10 @@ import BillingPage from "./pages/app/BillingPage";
 import QuotesPage from "./pages/app/QuotesPage";
 import ShipmentsPage from "./pages/app/ShipmentsPage";
 import SettingsPage from "./pages/app/SettingsPage";
+import NewQuotePage from "./pages/app/NewQuotePage";
+import QuoteResultsPage from "./pages/app/QuoteResultsPage";
+import NewShipmentPage from "./pages/app/NewShipmentPage";
+import ShipmentEditPage from "./pages/app/ShipmentEditPage";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +37,7 @@ function App() {
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/integrations" element={<Integrations />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/about" element={<About />} />
@@ -40,8 +46,12 @@ function App() {
               <Route path="/app" element={<AppLayout />}>
                 <Route index element={<Navigate to="/app/chat" replace />} />
                 <Route path="chat" element={<ChatPage />} />
-                <Route path="quotes" element={<QuotesPage />} />
-                <Route path="shipments" element={<ShipmentsPage />} />
+            <Route path="quotes" element={<QuotesPage />} />
+            <Route path="quotes/new" element={<NewQuotePage />} />
+            <Route path="quotes/results" element={<QuoteResultsPage />} />
+            <Route path="shipments" element={<ShipmentsPage />} />
+                <Route path="shipments/new" element={<NewShipmentPage />} />
+                <Route path="shipments/edit" element={<ShipmentEditPage />} />
                 <Route path="billing" element={<BillingPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>

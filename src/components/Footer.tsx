@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Package, Mail, Phone, MapPin } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -9,12 +9,7 @@ export function Footer() {
           {/* Brand */}
           <div>
             <Link to="/" className="mb-4 flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <Package className="h-6 w-6 text-primary" />
-              </div>
-              <span className="font-display text-xl font-bold">
-                APE<span className="text-primary">Global</span>
-              </span>
+              <img src="/logo-ape-global.png" alt="Ape Global" className="h-10 w-auto" />
             </Link>
             <p className="mb-4 text-sm text-muted-foreground">
               Developing tools for shipping packages, containers worldwide, 

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import logo from '@/assets/logo-ape-global.jpg';
+import { LogoBadge } from '@/components/LogoBadge';
 
 export function LandingFooter() {
   return (
@@ -8,10 +8,9 @@ export function LandingFooter() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           {/* Logo */}
           <Link to="/" className="flex items-center">
-            <img 
-              src={logo} 
-              alt="APE Global" 
-              className="h-8 w-auto rounded-lg ring-2 ring-primary/50 animate-logo-glow"
+            <LogoBadge
+              size="sm"
+              className="ring-2 ring-primary/50 animate-logo-glow"
             />
           </Link>
 

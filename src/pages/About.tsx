@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Target, Users, Zap, Eye, Handshake, Globe } from 'lucide-react';
-import logo from '@/assets/logo-ape-global.jpg';
+import { LogoBadge } from '@/components/LogoBadge';
 
 export default function About() {
   return (
@@ -11,11 +11,7 @@ export default function About() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-3">
-              <img 
-                src={logo} 
-                alt="APE Global" 
-                className="h-10 w-auto rounded-lg ring-2 ring-primary/50"
-              />
+              <LogoBadge className="ring-2 ring-primary/50" />
               <span className="text-xl font-bold text-foreground">APE Global</span>
             </Link>
             <Link to="/">

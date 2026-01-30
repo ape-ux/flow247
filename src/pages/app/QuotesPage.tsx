@@ -1,6 +1,14 @@
-import { FileText, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileText, Plus, Edit, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -10,13 +18,24 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-const mockQuotes = [
-  { id: 'QT-2024-001', customer: 'Acme Corp', origin: 'Los Angeles, CA', destination: 'New York, NY', amount: '$2,450.00', status: 'Accepted', date: 'Dec 10, 2024' },
-  { id: 'QT-2024-002', customer: 'Tech Industries', origin: 'Chicago, IL', destination: 'Miami, FL', amount: '$1,800.00', status: 'Pending', date: 'Dec 12, 2024' },
-  { id: 'QT-2024-003', customer: 'Global Imports', origin: 'Seattle, WA', destination: 'Dallas, TX', amount: '$3,200.00', status: 'Rejected', date: 'Dec 14, 2024' },
-];
-
 export default function QuotesPage() {
+  const navigate = useNavigate();
+  const [quotes, setQuotes] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Load quotes from localStorage
+    const savedQuotes = JSON.parse(localStorage.getItem('savedQuotes') || '[]');
+    setQuotes(savedQuotes);
+  }, []);
+
+  const handleEditQuote = (quoteId: string) => {
+    navigate(`/app/quotes/new?edit=${quoteId}`);
+  };
+
+  const handleRequote = (quoteId: string) => {
+    navigate(`/app/quotes/new?requote=${quoteId}`);
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -24,7 +43,7 @@ export default function QuotesPage() {
           <FileText className="h-6 w-6 text-primary" />
           Quotes
         </h1>
-        <Button variant="hero">
+        <Button variant="hero" onClick={() => navigate('/app/quotes/new')}>
           <Plus className="mr-2 h-4 w-4" />
           New Quote
         </Button>
@@ -41,33 +60,62 @@ export default function QuotesPage() {
               <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockQuotes.map((quote) => (
-              <TableRow key={quote.id}>
-                <TableCell className="font-medium">{quote.id}</TableCell>
-                <TableCell>{quote.customer}</TableCell>
-                <TableCell>{quote.origin}</TableCell>
-                <TableCell>{quote.destination}</TableCell>
-                <TableCell>{quote.amount}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant="secondary"
-                    className={
-                      quote.status === 'Accepted'
-                        ? 'bg-green-500/20 text-green-400'
-                        : quote.status === 'Rejected'
-                        ? 'bg-red-500/20 text-red-400'
-                        : 'bg-yellow-500/20 text-yellow-400'
+            {quotes.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  No quotes found. Create your first quote to get started.
+                </TableCell>
+              </TableRow>
+            ) : (
+              quotes.map((quote) => (
+                <TableRow key={quote.id}>
+                  <TableCell className="font-medium">#{quote.id}</TableCell>
+                  <TableCell>-</TableCell>
+                  <TableCell>{quote.origin.city}, {quote.origin.state}</TableCell>
+                  <TableCell>{quote.destination.city}, {quote.destination.state}</TableCell>
+                  <TableCell>${quote.cheapestRate.priceTotal.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="secondary"
+                      className={
+                        quote.status === 'Active'
+                          ? 'bg-green-500/20 text-green-400'
+                          : quote.status === 'Expired'
+                          ? 'bg-red-500/20 text-red-400'
+                          : 'bg-yellow-500/20 text-yellow-400'
                     }
                   >
                     {quote.status}
                   </Badge>
                 </TableCell>
-                <TableCell>{quote.date}</TableCell>
+                <TableCell>{new Date(quote.date).toLocaleDateString()}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit/Requote
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditQuote(quote.id)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Quote
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleRequote(quote.id)}>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Get New Rates
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
               </TableRow>
-            ))}
+            ))
+            )}
           </TableBody>
         </Table>
       </div>

@@ -11,52 +11,67 @@ const plans = [
   {
     name: 'Starter',
     icon: Zap,
-    price: 49,
-    description: 'Perfect for small businesses getting started with global shipping.',
+    price: 25,
+    description: 'Ideal for independent freight brokers, small agencies, and owner-operators.',
+    idealFor: 'Independent freight brokers, small agencies, owner-operators',
     features: [
       'Up to 100 shipments/month',
-      'Basic tracking & notifications',
-      'Email support',
-      'Standard analytics',
-      'Single user account',
+      '2 user seats',
+      'Basic carrier rate lookups',
+      '3 carrier integrations',
+      'Quote generator with standard templates',
+      'Shipment tracking dashboard',
+      'Email support (48hr response)',
+      'Basic reporting (monthly summaries)',
     ],
     popular: false,
-    priceId: 'price_starter',
+    priceId: 'price_starter_25',
   },
   {
     name: 'Professional',
     icon: Sparkles,
-    price: 149,
-    description: 'Ideal for growing businesses with increasing shipping needs.',
+    price: 99,
+    description: 'Perfect for growing freight brokerages and regional logistics companies.',
+    idealFor: 'Growing freight brokerages, regional logistics companies',
     features: [
+      'Everything in Starter, plus:',
       'Up to 500 shipments/month',
-      'Advanced tracking & real-time updates',
-      'Priority email & chat support',
-      'AI-powered analytics',
-      'Up to 5 team members',
-      'Custom integrations',
-      'API access',
+      '10 user seats',
+      'Full carrier API integrations (TQL, STG, TAI Cloud)',
+      'AI-powered rate optimization & lane analysis',
+      'Custom quote templates with branding',
+      'CFS fee calculator & accessorial management',
+      'Gross profit tracking by lane/client',
+      'Customer portal for shipper visibility',
+      'Priority support (24hr response)',
+      'Advanced analytics & margin reports',
     ],
     popular: true,
-    priceId: 'price_professional',
+    priceId: 'price_professional_99',
   },
   {
     name: 'Enterprise',
     icon: Building2,
-    price: 499,
-    description: 'For large organizations with complex logistics requirements.',
+    price: null,
+    priceLabel: 'Custom',
+    description: 'Built for multi-location operations, 3PLs, and large freight forwarders.',
+    idealFor: 'Multi-location operations, 3PLs, large freight forwarders',
     features: [
+      'Everything in Professional, plus:',
       'Unlimited shipments',
-      'White-glove tracking & support',
+      'Unlimited users',
+      'Multi-location support (NYC, LAX, etc.)',
+      'Dedicated API access for custom integrations',
+      'White-label customer portal',
+      'Commission tracking & agent payouts',
+      'Automated document generation (BOL, POD)',
       'Dedicated account manager',
-      'Advanced AI analytics & predictions',
-      'Unlimited team members',
-      'Custom workflows & automations',
-      'Full API access & webhooks',
-      'SLA guarantee',
+      'Custom onboarding & training',
+      'SLA-backed uptime guarantee',
+      'SSO & advanced security features',
     ],
     popular: false,
-    priceId: 'price_enterprise',
+    priceId: 'price_enterprise_custom',
   },
 ];
 
@@ -65,7 +80,7 @@ export default function Pricing() {
   const { toast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
 
-  const handleSubscribe = async (priceId: string, planName: string) => {
+  const handleSubscribe = async (priceId: string, planName: string, isCustom: boolean = false) => {
     if (!isAuthenticated) {
       toast({
         title: 'Sign in required',
@@ -77,15 +92,54 @@ export default function Pricing() {
     setLoading(priceId);
     
     try {
-      // This will be connected to Stripe via your backend
-      toast({
-        title: 'Coming soon!',
-        description: `${planName} plan subscription will be available once Stripe is configured.`,
+      if (isCustom) {
+        // Enterprise plan - open mailto for custom pricing
+        window.open('mailto:sales@apeglobal.com?subject=Enterprise Plan Inquiry&body=Hi, I\'m interested in the Enterprise plan. Please contact me to discuss custom pricing.', '_blank');
+        toast({
+          title: 'Contact Request Sent',
+          description: 'Our sales team will reach out to you shortly to discuss Enterprise pricing.',
+        });
+        setLoading(null);
+        return;
+      }
+
+      // Stripe Checkout integration
+      // TODO: Replace with your Stripe publishable key
+      const STRIPE_PUBLISHABLE_KEY = 'pk_test_YOUR_KEY_HERE'; // Get from Stripe Dashboard
+      
+      // Create checkout session
+      const response = await fetch('https://xjlt-4ifj-k7qu.n7e.xano.io/api:E1Skvg8o/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          priceId: priceId,
+          planName: planName,
+          // Add user info from auth context
+          customerEmail: localStorage.getItem('userEmail') || '',
+          successUrl: `${window.location.origin}/app/billing?session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${window.location.origin}/pricing`,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const { sessionId } = await response.json();
+      
+      // Redirect to Stripe Checkout
+      const stripe = (window as any).Stripe(STRIPE_PUBLISHABLE_KEY);
+      const { error } = await stripe.redirectToCheckout({ sessionId });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to initiate subscription.',
+        description: error.message || 'Failed to initiate subscription. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -140,15 +194,34 @@ export default function Pricing() {
                 </div>
 
                 <div className="mb-6">
-                  <span className="font-display text-5xl font-bold">${plan.price}</span>
-                  <span className="text-muted-foreground">/month</span>
+                  {plan.price ? (
+                    <>
+                      <span className="font-display text-5xl font-bold">${plan.price}</span>
+                      <span className="text-muted-foreground">/month</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-display text-5xl font-bold">{plan.priceLabel}</span>
+                      <span className="text-muted-foreground block text-sm mt-2">Contact for pricing</span>
+                    </>
+                  )}
                 </div>
 
+                {(plan as any).idealFor && (
+                  <div className="mb-4 rounded-lg bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>Ideal for:</strong> {(plan as any).idealFor}
+                    </p>
+                  </div>
+                )}
+
                 <ul className="mb-8 flex-1 space-y-3">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-3 text-sm">
+                  {plan.features.map((feature, index) => (
+                    <li key={index} className="flex items-start gap-3 text-sm">
                       <Check className="h-5 w-5 shrink-0 text-primary" />
-                      <span>{feature}</span>
+                      <span className={feature.includes('Everything in') ? 'font-semibold' : ''}>
+                        {feature}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -157,10 +230,14 @@ export default function Pricing() {
                   variant={plan.popular ? 'hero' : 'glass'}
                   size="lg"
                   className="w-full"
-                  onClick={() => handleSubscribe(plan.priceId, plan.name)}
+                  onClick={() => handleSubscribe(plan.priceId, plan.name, plan.price === null)}
                   disabled={loading === plan.priceId}
                 >
-                  {loading === plan.priceId ? 'Processing...' : 'Get Started'}
+                  {loading === plan.priceId 
+                    ? 'Processing...' 
+                    : plan.price === null 
+                      ? 'Contact Sales' 
+                      : 'Get Started'}
                 </Button>
               </div>
             ))}
