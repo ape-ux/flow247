@@ -11,36 +11,38 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { createCheckoutSession } from '@/lib/stripe';
 
+// Plan data synced from Xano subscription_plan table (workspace 1)
 const plans = [
   {
     id: 'starter',
     name: 'Starter',
     description: 'Perfect for small freight brokers getting started',
     price: {
-      monthly: 49,
-      annually: 39,
+      monthly: 25,
+      annually: 25, // $300/yr = $25/mo
     },
     icon: Zap,
     color: 'text-blue-500',
     bgColor: 'bg-blue-500/10',
     borderColor: 'border-blue-500/20',
     popular: false,
+    contactSales: false,
     features: [
-      { text: 'Up to 50 shipments/month', included: true },
-      { text: '2 team members', included: true },
-      { text: 'Basic container tracking', included: true },
-      { text: 'Email support', included: true },
-      { text: 'Standard reports', included: true },
-      { text: 'AI Chat Assistant', included: true },
-      { text: 'LFD monitoring', included: false },
-      { text: 'API access', included: false },
-      { text: 'Custom integrations', included: false },
+      { text: 'Up to 100 shipments/month', included: true },
+      { text: '2 user seats', included: true },
+      { text: 'Basic carrier rate lookups', included: true },
+      { text: '3 carrier integrations', included: true },
+      { text: 'Email support (48hr response)', included: true },
+      { text: 'AI-powered rate optimization', included: false },
+      { text: 'Full carrier API integrations', included: false },
+      { text: 'Multi-location support', included: false },
+      { text: 'Dedicated API access', included: false },
       { text: 'Dedicated account manager', included: false },
     ],
     cta: 'Start Free Trial',
     stripePriceId: {
-      monthly: 'price_starter_monthly',
-      annually: 'price_starter_annually',
+      monthly: 'price_1Sf6ap4Z50BH2Sx6ucws0cps',
+      annually: 'price_1Sf6ap4Z50BH2Sx6ucws0cps',
     },
   },
   {
@@ -48,30 +50,31 @@ const plans = [
     name: 'Professional',
     description: 'For growing logistics companies with advanced needs',
     price: {
-      monthly: 149,
-      annually: 119,
+      monthly: 99,
+      annually: 99, // $1,188/yr = $99/mo
     },
     icon: Building2,
     color: 'text-primary',
     bgColor: 'bg-primary/10',
     borderColor: 'border-primary/30',
     popular: true,
+    contactSales: false,
     features: [
       { text: 'Up to 500 shipments/month', included: true },
-      { text: '10 team members', included: true },
-      { text: 'Real-time container tracking', included: true },
-      { text: 'Priority email & chat support', included: true },
-      { text: 'Advanced analytics & reports', included: true },
-      { text: 'AI Chat + 4 AI Agents', included: true },
-      { text: 'LFD monitoring & alerts', included: true },
-      { text: 'API access (10k calls/mo)', included: true },
-      { text: 'Custom integrations', included: false },
+      { text: '10 user seats', included: true },
+      { text: 'Full carrier API integrations', included: true },
+      { text: 'AI-powered rate optimization', included: true },
+      { text: 'Priority support (24hr response)', included: true },
+      { text: 'Basic carrier rate lookups', included: true },
+      { text: 'All carrier integrations', included: true },
+      { text: 'Multi-location support', included: false },
+      { text: 'Dedicated API access', included: false },
       { text: 'Dedicated account manager', included: false },
     ],
     cta: 'Start Free Trial',
     stripePriceId: {
-      monthly: 'price_professional_monthly',
-      annually: 'price_professional_annually',
+      monthly: 'price_1Sf5qo4Z50BH2Sx6B4B0u21K',
+      annually: 'price_1Sf5qo4Z50BH2Sx6B4B0u21K',
     },
   },
   {
@@ -79,30 +82,31 @@ const plans = [
     name: 'Enterprise',
     description: 'Full-scale solution for large freight operations',
     price: {
-      monthly: 499,
-      annually: 399,
+      monthly: 0,
+      annually: 0,
     },
     icon: Rocket,
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/20',
     popular: false,
+    contactSales: true,
     features: [
       { text: 'Unlimited shipments', included: true },
-      { text: 'Unlimited team members', included: true },
-      { text: 'Real-time + predictive tracking', included: true },
-      { text: '24/7 phone & priority support', included: true },
-      { text: 'Custom dashboards & reports', included: true },
-      { text: 'All 8 AI Agents', included: true },
-      { text: 'Advanced LFD + detention alerts', included: true },
-      { text: 'Unlimited API access', included: true },
-      { text: 'Custom integrations & webhooks', included: true },
+      { text: 'Unlimited users', included: true },
+      { text: 'Multi-location support', included: true },
+      { text: 'Dedicated API access', included: true },
       { text: 'Dedicated account manager', included: true },
+      { text: 'Full carrier API integrations', included: true },
+      { text: 'AI-powered rate optimization', included: true },
+      { text: 'Priority support (24hr response)', included: true },
+      { text: 'Custom integrations & webhooks', included: true },
+      { text: 'All features included', included: true },
     ],
     cta: 'Contact Sales',
     stripePriceId: {
-      monthly: 'price_enterprise_monthly',
-      annually: 'price_enterprise_annually',
+      monthly: '',
+      annually: '',
     },
   },
 ];
@@ -265,14 +269,23 @@ export default function PricingPage() {
                 <p className="text-sm text-muted-foreground mb-6">{plan.description}</p>
 
                 <div className="mb-6">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold">${plan.price[billingCycle]}</span>
-                    <span className="text-muted-foreground">/month</span>
-                  </div>
-                  {billingCycle === 'annually' && (
-                    <p className="text-sm text-green-500 mt-1">
-                      Billed ${plan.price.annually * 12}/year (save ${(plan.price.monthly - plan.price.annually) * 12})
-                    </p>
+                  {plan.contactSales ? (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-bold">Custom</span>
+                      <span className="text-muted-foreground">/contact sales</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-bold">${plan.price[billingCycle]}</span>
+                        <span className="text-muted-foreground">/month</span>
+                      </div>
+                      {billingCycle === 'annually' && (
+                        <p className="text-sm text-green-500 mt-1">
+                          Billed ${plan.price.annually * 12}/year
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -335,14 +348,14 @@ export default function PricingPage() {
               </thead>
               <tbody>
                 {[
-                  { feature: 'Shipments per month', starter: '50', professional: '500', enterprise: 'Unlimited' },
-                  { feature: 'Team members', starter: '2', professional: '10', enterprise: 'Unlimited' },
-                  { feature: 'AI Agents', starter: '1 (Chat)', professional: '4', enterprise: '8 (All)' },
-                  { feature: 'Container tracking', starter: 'Basic', professional: 'Real-time', enterprise: 'Predictive' },
-                  { feature: 'LFD Monitoring', starter: false, professional: true, enterprise: true },
-                  { feature: 'API Access', starter: false, professional: '10k calls/mo', enterprise: 'Unlimited' },
-                  { feature: 'Custom integrations', starter: false, professional: false, enterprise: true },
-                  { feature: 'Support', starter: 'Email', professional: 'Priority', enterprise: '24/7 Phone' },
+                  { feature: 'Shipments per month', starter: '100', professional: '500', enterprise: 'Unlimited' },
+                  { feature: 'User seats', starter: '2', professional: '10', enterprise: 'Unlimited' },
+                  { feature: 'Carrier rate lookups', starter: 'Basic', professional: 'Full API', enterprise: 'Full API' },
+                  { feature: 'Carrier integrations', starter: '3', professional: 'All', enterprise: 'All + Custom' },
+                  { feature: 'AI-powered optimization', starter: false, professional: true, enterprise: true },
+                  { feature: 'Multi-location support', starter: false, professional: false, enterprise: true },
+                  { feature: 'Dedicated API access', starter: false, professional: false, enterprise: true },
+                  { feature: 'Support', starter: 'Email (48hr)', professional: 'Priority (24hr)', enterprise: 'Dedicated' },
                   { feature: 'Account manager', starter: false, professional: false, enterprise: true },
                 ].map((row, i) => (
                   <tr key={i} className="border-b border-border/30 hover:bg-muted/20">

@@ -17,84 +17,75 @@ export const getStripe = () => {
   return stripePromise;
 };
 
-// Stripe price ID configuration (replace with real IDs from Stripe Dashboard)
+// Stripe price ID configuration — synced from Xano workspace 1
 export const STRIPE_CONFIG = {
   publishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder',
   prices: {
     starter: {
-      monthly: 'price_starter_monthly',
-      annually: 'price_starter_annually',
+      monthly: 'price_1Sf6ap4Z50BH2Sx6ucws0cps',
+      annually: 'price_1Sf6ap4Z50BH2Sx6ucws0cps', // Same price ID — Xano has single price per plan
     },
     professional: {
-      monthly: 'price_professional_monthly',
-      annually: 'price_professional_annually',
+      monthly: 'price_1Sf5qo4Z50BH2Sx6B4B0u21K',
+      annually: 'price_1Sf5qo4Z50BH2Sx6B4B0u21K', // Same price ID — Xano has single price per plan
     },
     enterprise: {
-      monthly: 'price_enterprise_monthly',
-      annually: 'price_enterprise_annually',
+      monthly: '', // Contact Sales
+      annually: '', // Contact Sales
     },
-  },
-  products: {
-    starter: 'prod_starter',
-    professional: 'prod_professional',
-    enterprise: 'prod_enterprise',
   },
 };
 
-// Plan details for display
+// Plan details for display — synced from Xano subscription_plan table
 export const PLANS = {
   free: {
     name: 'Free',
     description: 'Basic access to explore the platform',
     monthlyPrice: 0,
     annualPrice: 0,
+    supabasePlanId: 1,
     features: ['View dashboard', 'Basic analytics'],
   },
   starter: {
     name: 'Starter',
     description: 'Perfect for small freight brokers getting started',
-    monthlyPrice: 49,
-    annualPrice: 39,
+    monthlyPrice: 25,
+    annualPrice: 25, // $300/yr = $25/mo
+    supabasePlanId: 2,
     features: [
-      'Up to 50 shipments/month',
-      '2 team members',
-      'Basic container tracking',
-      'Email support',
-      'Standard reports',
-      'AI Chat Assistant',
+      'Up to 100 shipments/month',
+      '2 user seats',
+      'Basic carrier rate lookups',
+      '3 carrier integrations',
+      'Email support (48hr response)',
     ],
   },
   professional: {
     name: 'Professional',
     description: 'For growing logistics companies with advanced needs',
-    monthlyPrice: 149,
-    annualPrice: 119,
+    monthlyPrice: 99,
+    annualPrice: 99, // $1,188/yr = $99/mo
+    supabasePlanId: 3,
     features: [
       'Up to 500 shipments/month',
-      '10 team members',
-      'Real-time container tracking',
-      'Priority email & chat support',
-      'Advanced analytics & reports',
-      'AI Chat + 4 AI Agents',
-      'LFD monitoring & alerts',
-      'API access (10k calls/mo)',
+      '10 user seats',
+      'Full carrier API integrations',
+      'AI-powered rate optimization',
+      'Priority support (24hr response)',
     ],
   },
   enterprise: {
     name: 'Enterprise',
     description: 'Full-scale solution for large freight operations',
-    monthlyPrice: 499,
-    annualPrice: 399,
+    monthlyPrice: 0,
+    annualPrice: 0,
+    supabasePlanId: 4,
+    contactSales: true,
     features: [
       'Unlimited shipments',
-      'Unlimited team members',
-      'Real-time + predictive tracking',
-      '24/7 phone & priority support',
-      'Custom dashboards & reports',
-      'All 8 AI Agents',
-      'Advanced LFD + detention alerts',
-      'Unlimited API access',
-      'Custom integrations & webhooks',
+      'Unlimited users',
+      'Multi-location support',
+      'Dedicated API access',
       'Dedicated account manager',
     ],
   },
