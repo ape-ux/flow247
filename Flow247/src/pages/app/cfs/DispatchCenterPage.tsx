@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import {
   Truck, Package, Loader2, RefreshCw, Search, MapPin, Calendar,
   Container, Send, CheckCircle2, Clock
@@ -7,14 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import {
-  getDispatchPending, requestDispatch,
-  type DispatchRequest
-} from '@/lib/xano';
+import { useCfsDispatchPending } from '@/hooks/useXanoQuery';
+import { requestDispatch, type DispatchRequest } from '@/lib/xano';
 
 export default function DispatchCenterPage() {
-  const [loading, setLoading] = useState(true);
-  const [pendingItems, setPendingItems] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cfsFilter, setCfsFilter] = useState('');
   const [showDispatchForm, setShowDispatchForm] = useState(false);
@@ -33,28 +29,13 @@ export default function DispatchCenterPage() {
     customer_reference: '',
   });
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getDispatchPending({
-        page: 1,
-        per_page: 50,
-        cfs_code: cfsFilter || undefined,
-      });
-      if (res.data) {
-        const items = Array.isArray(res.data) ? res.data : (res.data as any).items || [];
-        setPendingItems(items);
-      } else {
-        toast.error(res.error || 'Failed to load dispatch data');
-      }
-    } catch {
-      toast.error('Failed to load dispatch data');
-    } finally {
-      setLoading(false);
-    }
-  }, [cfsFilter]);
+  const { data, isLoading: loading, refetch } = useCfsDispatchPending({
+    page: 1,
+    per_page: 50,
+    cfs_code: cfsFilter || undefined,
+  });
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const pendingItems: any[] = data?.items || [];
 
   const handleDispatch = async () => {
     if (!dispatchForm.house_bill_number) {
@@ -75,7 +56,7 @@ export default function DispatchCenterPage() {
           delivery_zip: '', delivery_phone: '', preferred_pickup_date: '',
           customer_reference: '',
         });
-        loadData();
+        refetch();
       }
     } catch {
       toast.error('Failed to submit dispatch request');
@@ -117,7 +98,7 @@ export default function DispatchCenterPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>

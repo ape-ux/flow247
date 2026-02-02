@@ -1,4 +1,3 @@
-import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Container, AlertTriangle, Clock, CheckCircle2, Truck,
@@ -7,12 +6,10 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 import {
-  getCfsDashboardStats, getCfsMonitorDashboard, getCfsTasks, getActiveAlerts,
-  getCfsContainers, type CfsDashboardStats, type CfsContainer, type CfsAlert,
-  type CfsTask, type CfsMonitorDashboard
-} from '@/lib/xano';
+  useCfsStats, useCfsMonitor, useCfsTasks, useCfsAlerts, useCfsContainers
+} from '@/hooks/useXanoQuery';
+import type { CfsDashboardStats, CfsContainer, CfsAlert, CfsTask, CfsMonitorDashboard } from '@/lib/xano';
 
 const getLifecycleColor = (stage?: string) => {
   switch (stage?.toUpperCase()) {
@@ -49,40 +46,22 @@ const getSeverityBadge = (severity?: string) => {
 
 export default function ControlTowerPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<CfsDashboardStats | null>(null);
-  const [monitor, setMonitor] = useState<CfsMonitorDashboard | null>(null);
-  const [tasks, setTasks] = useState<CfsTask[]>([]);
-  const [alerts, setAlerts] = useState<CfsAlert[]>([]);
-  const [containers, setContainers] = useState<CfsContainer[]>([]);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [statsRes, monitorRes, tasksRes, alertsRes, containersRes] = await Promise.allSettled([
-        getCfsDashboardStats(),
-        getCfsMonitorDashboard({ page: 1, per_page: 50 }),
-        getCfsTasks({ status: 'OPEN', limit: 10 }),
-        getActiveAlerts({ page: 1, per_page: 10 }),
-        getCfsContainers({ limit: 20, sort_by: 'ata', sort_order: 'desc' }),
-      ]);
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useCfsStats();
+  const { data: monitor, isLoading: monitorLoading } = useCfsMonitor({ page: 1, per_page: 50 });
+  const { data: tasksData, isLoading: tasksLoading } = useCfsTasks({ status: 'OPEN' });
+  const { data: alertsData, isLoading: alertsLoading } = useCfsAlerts({ page: 1, per_page: 10 });
+  const { data: containersData, isLoading: containersLoading } = useCfsContainers({ limit: 20 });
 
-      if (statsRes.status === 'fulfilled' && statsRes.value.data) setStats(statsRes.value.data);
-      if (monitorRes.status === 'fulfilled' && monitorRes.value.data) setMonitor(monitorRes.value.data);
-      if (tasksRes.status === 'fulfilled' && tasksRes.value.data) setTasks(Array.isArray(tasksRes.value.data) ? tasksRes.value.data : []);
-      if (alertsRes.status === 'fulfilled' && alertsRes.value.data) {
-        const d = alertsRes.value.data;
-        setAlerts(Array.isArray(d) ? d : (d as any).items || []);
-      }
-      if (containersRes.status === 'fulfilled' && containersRes.value.data) setContainers(Array.isArray(containersRes.value.data) ? containersRes.value.data : []);
-    } catch {
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loading = statsLoading || monitorLoading || tasksLoading || alertsLoading || containersLoading;
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const tasks: CfsTask[] = Array.isArray(tasksData) ? tasksData : [];
+  const alerts: CfsAlert[] = alertsData?.items || [];
+  const containers: CfsContainer[] = Array.isArray(containersData) ? containersData : [];
+
+  const handleRefresh = () => {
+    refetchStats();
+  };
 
   const statCards = [
     { label: 'Total Containers', value: stats?.total_containers ?? monitor?.stats?.total_containers ?? containers.length, icon: Container, color: 'text-primary' },
@@ -106,7 +85,7 @@ export default function ControlTowerPage() {
             <p className="text-sm text-muted-foreground">Real-time CFS operations dashboard</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           {loading ? 'Loading...' : 'Refresh'}
         </Button>
@@ -163,7 +142,7 @@ export default function ControlTowerPage() {
               View All <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </div>
-          {loading ? (
+          {containersLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
@@ -220,7 +199,7 @@ export default function ControlTowerPage() {
                 All <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             </div>
-            {loading ? (
+            {alertsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
@@ -258,7 +237,7 @@ export default function ControlTowerPage() {
                 All <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             </div>
-            {loading ? (
+            {tasksLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>

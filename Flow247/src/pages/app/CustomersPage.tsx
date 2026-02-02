@@ -1,4 +1,3 @@
-import { useState, useEffect, useCallback } from 'react';
 import { Users, Plus, Search, Filter, Mail, Phone, Building2, MoreHorizontal, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,31 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { toast } from 'sonner';
-import { getCustomers, type Customer } from '@/lib/xano';
+import { useCustomers } from '@/hooks/useXanoQuery';
+import type { Customer } from '@/lib/xano';
 
 export default function CustomersPage() {
-  const [loading, setLoading] = useState(true);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getCustomers({ limit: 50 });
-      if (res.data) {
-        const d = res.data;
-        setCustomers(Array.isArray(d) ? d : (d as any).items || []);
-      } else if (res.error) {
-        toast.error('Failed to load customers: ' + res.error);
-      }
-    } catch {
-      toast.error('Failed to load customers');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
+  const { data, isLoading: loading, refetch } = useCustomers({ limit: 50 });
+  const customers: Customer[] = data?.items || [];
 
   return (
     <div className="space-y-6">
@@ -50,7 +30,7 @@ export default function CustomersPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Loading...' : 'Refresh'}
           </Button>

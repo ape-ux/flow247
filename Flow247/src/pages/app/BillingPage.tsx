@@ -1,19 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, CreditCard, Zap, Crown, Sparkles, Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { PLANS, createPortalSession, getSubscriptionFromSupabase } from '@/lib/stripe';
-
-type SubscriptionData = {
-  plan_id: string;
-  status: string;
-  current_period_end: string | null;
-  cancel_at_period_end: boolean;
-  stripe_customer_id: string | null;
-} | null;
+import { useSubscription } from '@/hooks/useSubscription';
+import { PLANS } from '@/lib/stripe';
 
 const planCards = [
   {
@@ -47,52 +39,28 @@ const planCards = [
 ];
 
 export default function BillingPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [loading, setLoading] = useState(true);
-  const [portalLoading, setPortalLoading] = useState(false);
-  const [subscription, setSubscription] = useState<SubscriptionData>(null);
+  const {
+    subscription,
+    loading,
+    actionLoading,
+    manageSubscription,
+    refreshSubscription,
+  } = useSubscription();
 
   // Handle success redirect from Stripe Checkout
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
       toast.success('Subscription activated! Welcome aboard.');
       // Refresh subscription data after a short delay (webhook might still be processing)
-      setTimeout(() => loadSubscription(), 2000);
+      setTimeout(() => refreshSubscription(), 2000);
     }
-  }, [searchParams]);
+  }, [searchParams, refreshSubscription]);
 
-  const loadSubscription = async () => {
-    if (!user) { setLoading(false); return; }
-    setLoading(true);
-    try {
-      const data = await getSubscriptionFromSupabase(user.id);
-      setSubscription(data);
-    } catch {
-      // No subscription found
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadSubscription(); }, [user]);
-
-  const currentPlanId = subscription?.plan_id || 'free';
-  const isActive = subscription?.status === 'active' || subscription?.status === 'trialing';
-  const currentPlanName = (PLANS as any)[currentPlanId]?.name || 'Free';
-
-  const handleManagePayment = async () => {
-    setPortalLoading(true);
-    try {
-      const { url } = await createPortalSession();
-      window.location.href = url;
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to open billing portal');
-    } finally {
-      setPortalLoading(false);
-    }
-  };
+  const currentPlanId = subscription.planId;
+  const isActive = subscription.isActive;
+  const currentPlanName = subscription.planName;
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
@@ -129,32 +97,32 @@ export default function BillingPage() {
                 </h2>
                 {isActive ? (
                   <Badge variant="glow">Active</Badge>
-                ) : subscription?.status === 'past_due' ? (
+                ) : subscription.status === 'past_due' ? (
                   <Badge variant="destructive">Past Due</Badge>
-                ) : subscription?.status === 'canceled' ? (
+                ) : subscription.status === 'canceled' ? (
                   <Badge variant="secondary">Canceled</Badge>
                 ) : (
                   <Badge variant="outline">No Plan</Badge>
                 )}
               </div>
-              {subscription?.current_period_end && isActive && (
+              {subscription.currentPeriodEnd && isActive && (
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {subscription.cancel_at_period_end
-                    ? `Cancels on ${formatDate(subscription.current_period_end)}`
-                    : `Next billing date: ${formatDate(subscription.current_period_end)}`
+                  {subscription.cancelAtPeriodEnd
+                    ? `Cancels on ${formatDate(subscription.currentPeriodEnd)}`
+                    : `Next billing date: ${formatDate(subscription.currentPeriodEnd)}`
                   }
                 </p>
               )}
-              {!subscription && (
+              {subscription.planId === 'free' && !isActive && (
                 <p className="mt-1 text-sm text-muted-foreground">
                   You are on the free tier. Upgrade to unlock all features.
                 </p>
               )}
             </div>
             <div className="flex gap-3">
-              {subscription?.stripe_customer_id ? (
-                <Button variant="outline" onClick={handleManagePayment} disabled={portalLoading}>
-                  {portalLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
+              {subscription.stripeCustomerId ? (
+                <Button variant="outline" onClick={manageSubscription} disabled={actionLoading}>
+                  {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
                   Manage Billing
                 </Button>
               ) : (
@@ -227,13 +195,13 @@ export default function BillingPage() {
           <CreditCard className="h-5 w-5 text-primary" />
           Invoice History
         </h2>
-        {subscription?.stripe_customer_id ? (
+        {subscription.stripeCustomerId ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               View and download your full invoice history in the Stripe Customer Portal.
             </p>
-            <Button variant="outline" size="sm" onClick={handleManagePayment} disabled={portalLoading}>
-              {portalLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
+            <Button variant="outline" size="sm" onClick={manageSubscription} disabled={actionLoading}>
+              {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
               View Invoices in Portal
             </Button>
           </div>

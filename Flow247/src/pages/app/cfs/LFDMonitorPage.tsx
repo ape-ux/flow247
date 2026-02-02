@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, AlertTriangle, CheckCircle2, Container, Calendar, MapPin, Ship, RefreshCw, Filter, Download, Loader2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  getCfsContainers, getCfsMonitorDashboard, exportCfsData,
-  type CfsContainer, type CfsMonitorDashboard
-} from '@/lib/xano';
+import { useCfsContainers, useCfsMonitor } from '@/hooks/useXanoQuery';
+import { exportCfsData, type CfsContainer } from '@/lib/xano';
 
 const getStatusConfig = (container: CfsContainer) => {
   const days = container.effective_days_until_lfd;
@@ -43,49 +41,31 @@ const formatDate = (dateStr?: string) => {
 
 export default function LFDMonitorPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [containers, setContainers] = useState<CfsContainer[]>([]);
-  const [monitor, setMonitor] = useState<CfsMonitorDashboard | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState(false);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [containersRes, monitorRes] = await Promise.allSettled([
-        getCfsContainers({
-          q: searchQuery || undefined,
-          status: statusFilter || undefined,
-          limit: 50,
-          page,
-          sort_by: 'effective_days_until_lfd',
-          sort_order: 'asc',
-        }),
-        getCfsMonitorDashboard({ page: 1, per_page: 50, status_filter: statusFilter || undefined }),
-      ]);
+  const { data: containersData, isLoading: containersLoading, refetch: refetchContainers } = useCfsContainers({
+    q: searchQuery || undefined,
+    status: statusFilter || undefined,
+    limit: 50,
+    page,
+  });
 
-      if (containersRes.status === 'fulfilled' && containersRes.value.data) {
-        setContainers(Array.isArray(containersRes.value.data) ? containersRes.value.data : []);
-      }
-      if (monitorRes.status === 'fulfilled' && monitorRes.value.data) {
-        setMonitor(monitorRes.value.data);
-        // If containers endpoint returned empty, fall back to monitor items
-        if (containersRes.status === 'fulfilled' && (!containersRes.value.data || (Array.isArray(containersRes.value.data) && containersRes.value.data.length === 0))) {
-          if (monitorRes.value.data.items?.length) {
-            setContainers(monitorRes.value.data.items);
-          }
-        }
-      }
-    } catch {
-      toast.error('Failed to load LFD data');
-    } finally {
-      setLoading(false);
-    }
-  }, [searchQuery, statusFilter, page]);
+  const { data: monitor, isLoading: monitorLoading } = useCfsMonitor({
+    page: 1,
+    per_page: 50,
+    status_filter: statusFilter || undefined,
+  });
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const loading = containersLoading || monitorLoading;
+
+  // Resolve containers: prefer containersData, fall back to monitor items
+  let containers: CfsContainer[] = Array.isArray(containersData) ? containersData : [];
+  if (containers.length === 0 && monitor?.items?.length) {
+    containers = monitor.items;
+  }
 
   const handleExport = async (format: 'json' | 'csv') => {
     setExporting(true);
@@ -131,7 +111,7 @@ export default function LFDMonitorPage() {
   const stats = [
     { label: 'Total Containers', value: totalContainers, icon: Container, color: 'text-primary' },
     { label: 'Expired LFD', value: expired, icon: AlertTriangle, color: 'text-red-500' },
-    { label: 'Critical (\u22643 days)', value: critical, icon: Clock, color: 'text-amber-500' },
+    { label: 'Critical (≤3 days)', value: critical, icon: Clock, color: 'text-amber-500' },
     { label: 'On Track', value: ok, icon: CheckCircle2, color: 'text-green-500' },
   ];
 
@@ -151,7 +131,7 @@ export default function LFDMonitorPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => refetchContainers()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -202,7 +182,6 @@ export default function LFDMonitorPage() {
             placeholder="Search by container, HBL, or vessel..."
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-            onKeyDown={(e) => e.key === 'Enter' && loadData()}
             className="pl-10 bg-muted/50 border-border/50"
           />
         </div>

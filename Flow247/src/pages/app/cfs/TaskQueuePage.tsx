@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import {
   CheckCircle2, Clock, Container, Plus, Loader2, RefreshCw, Search,
   AlertTriangle, ChevronDown
@@ -7,10 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import {
-  getCfsTasks, createCfsTask, updateCfsTask,
-  type CfsTask
-} from '@/lib/xano';
+import { useCfsTasks } from '@/hooks/useXanoQuery';
+import { createCfsTask, updateCfsTask, type CfsTask } from '@/lib/xano';
 
 const TASK_TYPES = [
   'CALL_CFS', 'PAY_CHARGES', 'SCHEDULE_PICKUP', 'DOCS_MISSING', 'CUSTOMS_HOLD',
@@ -36,8 +34,6 @@ const getPriorityColor = (priority?: number) => {
 };
 
 export default function TaskQueuePage() {
-  const [loading, setLoading] = useState(true);
-  const [tasks, setTasks] = useState<CfsTask[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('OPEN');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -52,27 +48,12 @@ export default function TaskQueuePage() {
     priority: 3,
   });
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getCfsTasks({
-        status: statusFilter || undefined,
-        container_number: searchQuery || undefined,
-        limit: 50,
-      });
-      if (res.data) {
-        setTasks(Array.isArray(res.data) ? res.data : []);
-      } else {
-        toast.error(res.error || 'Failed to load tasks');
-      }
-    } catch {
-      toast.error('Failed to load tasks');
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, searchQuery]);
+  const { data: tasksData, isLoading: loading, refetch } = useCfsTasks({
+    status: statusFilter || undefined,
+    container_number: searchQuery || undefined,
+  });
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const tasks: CfsTask[] = Array.isArray(tasksData) ? tasksData : [];
 
   const handleCreate = async () => {
     if (!newTask.title.trim()) {
@@ -94,7 +75,7 @@ export default function TaskQueuePage() {
         toast.success('Task created');
         setShowCreateForm(false);
         setNewTask({ container_number: '', task_type: 'SCHEDULE_PICKUP', title: '', description: '', priority: 3 });
-        loadData();
+        refetch();
       }
     } catch {
       toast.error('Failed to create task');
@@ -113,7 +94,7 @@ export default function TaskQueuePage() {
         toast.error(res.error);
       } else {
         toast.success(`Task ${status === 'DONE' ? 'completed' : 'updated'}`);
-        loadData();
+        refetch();
       }
     } catch {
       toast.error('Failed to update task');
@@ -138,7 +119,7 @@ export default function TaskQueuePage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -245,7 +226,6 @@ export default function TaskQueuePage() {
             placeholder="Search by container number..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && loadData()}
             className="pl-10 bg-muted/50 border-border/50"
           />
         </div>

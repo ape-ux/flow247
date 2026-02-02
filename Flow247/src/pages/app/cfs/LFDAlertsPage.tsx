@@ -1,13 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { AlertTriangle, Bell, BellOff, CheckCircle2, Clock, Container, Mail, MessageSquare, Phone, Settings, Trash2, Plus, Loader2, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import {
-  getActiveAlerts, alertAction, resolveCfsAlert,
-  type CfsAlert
-} from '@/lib/xano';
+import { useCfsAlerts } from '@/hooks/useXanoQuery';
+import { alertAction, type CfsAlert } from '@/lib/xano';
 
 const getSeverityConfig = (severity?: string) => {
   switch (severity?.toUpperCase()) {
@@ -40,12 +38,18 @@ const formatTimestamp = (dateStr?: string) => {
 };
 
 export default function LFDAlertsPage() {
-  const [loading, setLoading] = useState(true);
-  const [alerts, setAlerts] = useState<CfsAlert[]>([]);
-  const [total, setTotal] = useState(0);
   const [severityFilter, setSeverityFilter] = useState<string>('');
   const [page, setPage] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
+
+  const { data: alertsData, isLoading: loading, refetch } = useCfsAlerts({
+    page,
+    per_page: 20,
+    severity: severityFilter || undefined,
+  });
+
+  const alerts: CfsAlert[] = alertsData?.items || [];
+  const total = alertsData?.total || 0;
 
   const alertRules = [
     { id: 1, name: '7-Day Warning', days: 7, channels: ['email'], active: true },
@@ -54,34 +58,6 @@ export default function LFDAlertsPage() {
     { id: 4, name: 'LFD Expired', days: 0, channels: ['email', 'sms', 'call'], active: true },
   ];
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getActiveAlerts({
-        page,
-        per_page: 20,
-        severity: severityFilter || undefined,
-      });
-      if (res.data) {
-        if (Array.isArray(res.data)) {
-          setAlerts(res.data);
-          setTotal(res.data.length);
-        } else {
-          setAlerts((res.data as any).items || []);
-          setTotal((res.data as any).total || 0);
-        }
-      } else {
-        toast.error(res.error || 'Failed to load alerts');
-      }
-    } catch {
-      toast.error('Failed to load alerts');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, severityFilter]);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
   const handleAcknowledge = async (alertId: number) => {
     try {
       const res = await alertAction(alertId, 'acknowledge', 'Acknowledged from dashboard');
@@ -89,7 +65,7 @@ export default function LFDAlertsPage() {
         toast.error(res.error);
       } else {
         toast.success('Alert acknowledged');
-        loadData();
+        refetch();
       }
     } catch {
       toast.error('Failed to acknowledge alert');
@@ -103,7 +79,7 @@ export default function LFDAlertsPage() {
         toast.error(res.error);
       } else {
         toast.success('Alert resolved');
-        loadData();
+        refetch();
       }
     } catch {
       toast.error('Failed to resolve alert');
@@ -128,7 +104,7 @@ export default function LFDAlertsPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
