@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut as supabaseSignOut, DEV_MODE, type SupabaseUser } from '@/lib/supabase';
-import { syncUserToXano, setXanoToken, updateXanoUserProfile, type XanoUser } from '@/lib/xano';
+import { syncUserToXano, setXanoToken, getXanoToken, updateXanoUserProfile, type XanoUser } from '@/lib/xano';
 import type { Session } from '@supabase/supabase-js';
 
 // Supabase profile row (mirrors the profiles table)
@@ -55,6 +55,7 @@ interface AuthState {
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  xanoReady: boolean;
 }
 
 interface AuthContextType extends AuthState {
@@ -119,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session: null,
     isLoading: !DEV_MODE,
     isAuthenticated: false,
+    xanoReady: !!getXanoToken(),
   });
 
   // Helper: race a promise against a timeout
@@ -159,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
 
       if (xanoResult.error) {
-        console.warn('Xano sync failed/timed out:', xanoResult.error);
+        console.warn('[Auth] Xano sync API failed:', xanoResult.error);
         return { user: null, authToken: null, profile: existingProfile };
       }
 
@@ -167,20 +169,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const xanoUser: XanoUser | null = responseAny?.user || xanoResult.data;
       const authToken: string | null = responseAny?.authToken || null;
 
-      // 2. Upsert Xano data into Supabase profiles table
+      // 2. Sync Xano data into Supabase profiles table (best-effort, don't block token/user)
       let profile: Profile | null = existingProfile;
       if (xanoUser) {
-        const profileData = xanoToProfile(xanoUser, supabaseUser.id);
-        const { data: upserted, error: upsertError } = await supabase
-          .from('profiles')
-          .upsert(profileData, { onConflict: 'id' })
-          .select()
-          .single();
+        try {
+          const profileData = xanoToProfile(xanoUser, supabaseUser.id);
 
-        if (upsertError) {
-          console.warn('Failed to upsert profile to Supabase:', upsertError.message);
-        } else {
-          profile = upserted as Profile;
+          if (existingProfile) {
+            const { id: _id, ...updateData } = profileData;
+            const { data: updated, error: updateError } = await supabase
+              .from('profiles')
+              .update({ ...updateData, updated_at: new Date().toISOString() })
+              .eq('id', supabaseUser.id)
+              .select()
+              .single();
+
+            if (updateError) {
+              console.warn('[Auth] Supabase profile update failed:', updateError.message);
+            } else {
+              profile = updated as Profile;
+            }
+          } else {
+            const { data: inserted, error: insertError } = await supabase
+              .from('profiles')
+              .insert({ ...profileData, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+              .select()
+              .single();
+
+            if (insertError) {
+              console.warn('[Auth] Supabase profile insert failed:', insertError.message);
+              profile = await readSupabaseProfile(supabaseUser.id);
+            } else {
+              profile = inserted as Profile;
+            }
+          }
+        } catch (profileError) {
+          console.warn('[Auth] Supabase profile sync error (non-fatal):', profileError);
         }
       }
 
@@ -200,15 +224,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let initialSessionHandled = false;
+    let authInProgress = false;
+    let authenticatedUserId: string | null = null;
 
-    // Helper: authenticate user immediately, then sync Xano in background
+    // Helper: authenticate user, read profile, then sync Xano in background
     const authenticateUser = async (session: Session) => {
+      if (authInProgress) return;
+      // Skip if we already fully authenticated this user
+      if (authenticatedUserId === session.user.id) {
+        setState(prev => ({ ...prev, session }));
+        return;
+      }
+      authInProgress = true;
       const user = session.user;
+      const hasExistingToken = !!getXanoToken();
 
-      // 1. Read Supabase profile first (fast) to unblock the UI
-      const quickProfile = await readSupabaseProfile(user.id);
+      // 1. Read Supabase profile FIRST (fast, has permissions like is_super_admin)
+      //    Use a short timeout so we don't block forever
+      const quickProfile = await withTimeout(readSupabaseProfile(user.id), 3000, null);
+      console.log('[Auth] Quick profile from Supabase:', { found: !!quickProfile, name: quickProfile?.full_name, isSuperAdmin: quickProfile?.is_super_admin });
 
-      // 2. Set authenticated immediately so the app renders
+      // 2. Set authenticated with profile so permissions (admin panel, etc.) work immediately
       setState({
         user,
         xanoUser: null,
@@ -216,19 +252,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         isLoading: false,
         isAuthenticated: true,
+        xanoReady: hasExistingToken,
       });
 
-      // 3. Sync to Xano in background (non-blocking)
+      // 3. Sync to Xano in background — sets token and xanoReady when done
       try {
-        const { user: xanoUser, authToken, profile: fullProfile } = await syncToXano(user);
+        console.log('[Auth] Starting Xano sync for:', user.email);
+
+        // Call Xano /user/sync directly (don't go through syncToXano which also
+        // reads Supabase profile and writes back — that can hang/block)
+        const xanoResult = await withTimeout(
+          syncUserToXano({
+            id: user.id,
+            email: user.email,
+            user_metadata: user.user_metadata,
+          }),
+          8000,
+          { error: 'Xano sync timed out' } as { data?: any; error?: string }
+        );
+
+        if (xanoResult.error) {
+          console.warn('[Auth] Xano sync failed:', xanoResult.error);
+          setState(prev => ({ ...prev, xanoReady: true }));
+          return;
+        }
+
+        const responseAny = xanoResult.data as any;
+        const syncedUser: XanoUser | null = responseAny?.user || xanoResult.data;
+        const authToken: string | null = responseAny?.authToken || null;
+        console.log('[Auth] Xano sync OK:', { name: syncedUser?.name, isSuperAdmin: syncedUser?.is_super_admin, hasToken: !!authToken });
+
+        // Set token FIRST so subsequent API calls work
         if (authToken) setXanoToken(authToken);
+
+        // Build a profile from the Xano user data for immediate display
+        const xanoProfile: Partial<Profile> | null = syncedUser ? xanoToProfile(syncedUser, user.id) : null;
+
+        // Update state IMMEDIATELY — don't wait for Supabase write
         setState(prev => ({
           ...prev,
-          xanoUser,
-          profile: fullProfile || prev.profile,
+          xanoUser: syncedUser,
+          xanoReady: true,
+          profile: xanoProfile ? { ...prev.profile, ...xanoProfile } as Profile : prev.profile,
         }));
+        authenticatedUserId = user.id;
+
+        // Best-effort: sync Xano data back to Supabase profiles table (non-blocking)
+        if (syncedUser && quickProfile) {
+          const { id: _id, ...updateData } = xanoProfile || {};
+          supabase
+            .from('profiles')
+            .update({ ...updateData, updated_at: new Date().toISOString() })
+            .eq('id', user.id)
+            .then(({ error: upErr }) => {
+              if (upErr) console.warn('[Auth] Supabase profile write failed (non-blocking):', upErr.message);
+            });
+        } else if (syncedUser && !quickProfile && xanoProfile) {
+          supabase
+            .from('profiles')
+            .upsert({ ...xanoProfile, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: 'id' })
+            .then(({ error: insErr }) => {
+              if (insErr) console.warn('[Auth] Supabase profile upsert failed (non-blocking):', insErr.message);
+            });
+        }
       } catch (e) {
         console.warn('Background Xano sync failed:', e);
+        setState(prev => ({ ...prev, xanoReady: true }));
+      } finally {
+        authInProgress = false;
       }
     };
 
@@ -259,9 +350,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (event === 'SIGNED_IN' && session?.user) {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
         await authenticateUser(session);
       } else if (event === 'SIGNED_OUT') {
+        authenticatedUserId = null;
         setXanoToken(null);
         setState({
           user: null,
@@ -270,6 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           session: null,
           isLoading: false,
           isAuthenticated: false,
+          xanoReady: false,
         });
       } else if (event === 'TOKEN_REFRESHED' && session) {
         setState(prev => ({ ...prev, session }));
@@ -317,6 +410,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session: null,
         isLoading: false,
         isAuthenticated: false,
+        xanoReady: false,
       });
     } catch (error) {
       console.error('Sign out error:', error);

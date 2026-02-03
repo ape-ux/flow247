@@ -9,6 +9,8 @@ const XANO_DASHBOARD_BASE = import.meta.env.VITE_XANO_DASHBOARD_BASE || 'https:/
 const XANO_STG_OPS_BASE = import.meta.env.VITE_XANO_STG_OPS_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:M6Xz5_I1';
 const XANO_STG_FINANCIALS_BASE = import.meta.env.VITE_XANO_STG_FINANCIALS_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:MDtcogTI';
 const XANO_STG_ARRIVAL_BASE = import.meta.env.VITE_XANO_STG_ARRIVAL_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:lt8FkLwE';
+const XANO_SHIPPING_BASE = import.meta.env.VITE_XANO_SHIPPING_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:E1Skvg8o';
+const XANO_DB_BASE = import.meta.env.VITE_XANO_DB_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:MOZVC8ir';
 
 // Types
 export interface XanoUser {
@@ -120,7 +122,12 @@ const xanoRequest = async <T>(
     const data = await response.json();
 
     if (!response.ok) {
-      return { error: data.message || 'Request failed' };
+      // Include status code in error message for better error handling
+      const errorMsg = data.message || 'Request failed';
+      if (response.status === 400) {
+        console.warn(`[Xano] 400 Bad Request for ${endpoint}:`, { message: errorMsg, payload: data, hasToken: !!token });
+      }
+      return { error: `${response.status}: ${errorMsg}` };
     }
 
     return { data };
@@ -355,35 +362,48 @@ export const getMcpSseUrl = (conversationId: string): string => {
 };
 
 // ============================================
-// Shipping & Quotes APIs
+// Quote Request APIs (XANO_DASHBOARD_BASE)
 // ============================================
 
-export interface RateQuoteRequest {
-  origin: {
-    city?: string;
-    state?: string;
-    zip: string;
-    country?: string;
-  };
-  destination: {
-    city?: string;
-    state?: string;
-    zip: string;
-    country?: string;
-  };
-  commodities: Array<{
-    weight: number;
-    length?: number;
-    width?: number;
-    height?: number;
-    pieces?: number;
-    class?: string;
-    description?: string;
-  }>;
-  pickup_date?: string;
-  accessorials?: string[];
+export interface QuoteRequest {
+  id: number;
+  created_at: number;
+  quote_request_id: string;
+  user_id: number;
+  customer_id: number;
+  tenant_id: number;
+  origin_zip: string;
+  origin_city: string;
+  origin_state: string;
+  origin_country: string;
+  destination_zip: string;
+  destination_city: string;
+  destination_state: string;
+  destination_country: string;
+  pickup_date: string;
+  weight_units: string;
+  dimension_units: string;
+  total_weight: number;
+  total_pieces: number;
+  total_handling_units: number;
+  quotes_received: number;
+  cheapest_price: number;
+  cheapest_carrier: string;
+  fastest_transit: number;
+  fastest_carrier: string;
+  status: string;
+  distance_miles: number;
+  origin_latitude?: number;
+  origin_longitude?: number;
+  destination_latitude?: number;
+  destination_longitude?: number;
+  raw_response?: Record<string, unknown>;
+  raw_request?: Record<string, unknown> | null;
+  updated_at?: number;
+  expires_at?: number;
 }
 
+// Legacy alias for backward compat
 export interface QuoteResult {
   carrier_name: string;
   carrier_id: string;
@@ -395,35 +415,237 @@ export interface QuoteResult {
   details?: Record<string, unknown>;
 }
 
-export const getRateQuotes = async (
-  request: RateQuoteRequest
-): Promise<XanoResponse<QuoteResult[]>> => {
-  return xanoRequest<QuoteResult[]>('/quotes/rate', {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
-};
-
-export const saveQuote = async (
-  quote: QuoteResult & { request: RateQuoteRequest }
-): Promise<XanoResponse<{ id: number }>> => {
-  return xanoRequest<{ id: number }>('/quotes', {
-    method: 'POST',
-    body: JSON.stringify(quote),
-  });
-};
-
 export const getQuotes = async (params?: {
   page?: number;
   limit?: number;
   status?: string;
-}): Promise<XanoResponse<{ items: QuoteResult[]; total: number }>> => {
+}): Promise<XanoResponse<QuoteRequest[]>> => {
   const query = new URLSearchParams();
   if (params?.page) query.set('page', params.page.toString());
-  if (params?.limit) query.set('limit', params.limit.toString());
+  if (params?.limit) query.set('per_page', params.limit.toString());
   if (params?.status) query.set('status', params.status);
 
-  return xanoRequest<{ items: QuoteResult[]; total: number }>(`/quotes?${query.toString()}`);
+  // Quotes are stored in the Database CRUD API (api:MOZVC8ir) at /quote
+  const result = await xanoRequest<any>(`/quote?${query.toString()}`, {}, XANO_DB_BASE);
+
+  if (result.error) {
+    return { error: result.error };
+  }
+
+  // DB API may return { quotes: [...], total: N } or a raw array
+  const d = result.data;
+  const items = d?.quotes || d?.items || (Array.isArray(d) ? d : []);
+  return { data: items };
+};
+
+// ============================================
+// Shipping API Group (XANO_SHIPPING_BASE)
+// Rate Quoting, Booking, and Tracking
+// ============================================
+
+// --- LTL Rate Quote Types ---
+
+export interface LtlCommodity {
+  HandlingQuantity: number;
+  PackagingType?: string;   // default "120" = Pallet
+  Length: number;
+  Width: number;
+  Height: number;
+  WeightTotal: number;
+  HazardousMaterial: boolean;
+  PiecesTotal: number;
+  FreightClass?: number;
+  NMFC?: string;
+  Description?: string;
+  AdditionalMarkings?: string;
+  UNNumber?: string;
+  PackingGroup?: number;
+}
+
+export interface LtlRateQuoteRequest {
+  AuthenticationKey?: string;
+  OriginZipCode: string;
+  OriginCountry?: number;         // 1 = US
+  DestinationZipCode: string;
+  DestinationCountry?: number;    // 1 = US
+  WeightUnits?: string;           // "lb"
+  DimensionUnits?: string;        // "in"
+  AccessorialCodes?: string[] | null;
+  LegacySupport?: boolean;
+  CustomerReferenceNumber?: string;
+  Commodities: LtlCommodity[];
+}
+
+export interface ShipmentRateAccessorial {
+  accessorialCode: string;
+  accessorialPrice: number;
+}
+
+export interface ShipmentRate {
+  db_id?: number;
+  quote_result_id?: number;
+  api_quote_number?: string;
+  apiQuoteNumber?: string;
+  carrierName: string;
+  carrierSCAC: string;
+  serviceLevel: string;
+  priceTotal: number;
+  priceLineHaul: number;
+  priceFuelSurcharge?: number;
+  priceAccessorials?: ShipmentRateAccessorial[];
+  transitTime?: number;
+  tariffDescription?: string;
+  tsaCompliance?: string;
+  pricingInstructions?: string;
+  newLiabilityCoverage?: number;
+  usedLiabilityCoverage?: number;
+}
+
+export interface LtlRateQuoteResponse {
+  success: boolean;
+  quote_id: number;
+  quote_request_id?: string;
+  origin: {
+    zip: string;
+    city: string;
+    state: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  destination: {
+    zip: string;
+    city: string;
+    state: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  distance_miles?: number;
+  total_rates_returned: number;
+  top_rates_stored: number;
+  ShipmentRates: ShipmentRate[];
+  cheapest_rate?: ShipmentRate;
+  fastest_rate?: ShipmentRate;
+}
+
+// --- Shipment Booking Types ---
+
+export interface BookShipmentRequest {
+  quote_result_id: number;
+  origin_company?: string;
+  origin_contact?: string;
+  origin_address?: string;
+  origin_phone?: string;
+  destination_company?: string;
+  destination_contact?: string;
+  destination_address?: string;
+  destination_phone?: string;
+  CustomerReferenceNumber?: string;
+}
+
+export interface BookShipmentResponse {
+  success: boolean;
+  shipment: {
+    id: number;
+    tai_shipment_id: number;
+    status: string;
+    origin: { zip: string; city: string; state: string };
+    destination: { zip: string; city: string; state: string };
+    carrier: { name: string; scac: string };
+    charges: { total: number; linehaul: number; fuel?: number };
+    service_level: string;
+    transit_days?: number;
+    estimated_delivery?: number;
+    customer_reference?: string;
+    bol_number?: string;
+    pro_number?: string;
+  };
+  tai_response: {
+    result: {
+      shipmentID: number;
+      shipmentStatus: string;
+      billOfLadingURL?: string;
+      apiQuoteNumber?: string;
+      priceDetail: {
+        priceTotal: number;
+        carrierName: string;
+        carrierSCAC: string;
+        transitTime?: number;
+        priceLineHaul: number;
+        priceFuelSurcharge?: number;
+        apiQuoteNumber?: string;
+        tariffDescription?: string;
+        priceAccessorials?: string[];
+      };
+      billToAddress?: {
+        companyName: string;
+        streetAddress: string;
+        city: string;
+        state: string;
+        zipCode: string;
+        country: string;
+      };
+    };
+    status: number;
+  };
+}
+
+// --- Quote Result Lookup Type ---
+
+export interface QuoteResultDetail {
+  id?: number;
+  quote_id?: number;
+  carrierName?: string;
+  carrierSCAC?: string;
+  serviceLevel?: string;
+  priceTotal?: number;
+  priceLineHaul?: number;
+  priceFuelSurcharge?: number;
+  transitTime?: number;
+  apiQuoteNumber?: string;
+  tariffDescription?: string;
+  [key: string]: unknown;
+}
+
+// --- Shipping API Functions ---
+
+/**
+ * Get LTL rate quotes from TAI Cloud via Xano Shipping API
+ * PUT /shipping/getRateQuote
+ */
+export const getLtlRateQuote = async (
+  request: LtlRateQuoteRequest
+): Promise<XanoResponse<LtlRateQuoteResponse>> => {
+  return xanoRequest<LtlRateQuoteResponse>('/shipping/getRateQuote', {
+    method: 'PUT',
+    body: JSON.stringify({ data: request }),
+  }, XANO_SHIPPING_BASE);
+};
+
+/**
+ * Book a shipment from a quote result
+ * POST /shipment/book
+ */
+export const bookShipment = async (
+  request: BookShipmentRequest
+): Promise<XanoResponse<BookShipmentResponse>> => {
+  return xanoRequest<BookShipmentResponse>('/shipment/book', {
+    method: 'POST',
+    body: JSON.stringify({ data: request }),
+  }, XANO_SHIPPING_BASE);
+};
+
+/**
+ * Get quote results by quote_id
+ * GET /quuote_id_result_?quote_id=XXX
+ */
+export const getQuoteResultById = async (
+  quoteId: number | string
+): Promise<XanoResponse<QuoteResultDetail>> => {
+  return xanoRequest<QuoteResultDetail>(
+    `/quuote_id_result_?quote_id=${encodeURIComponent(quoteId)}`,
+    {},
+    XANO_SHIPPING_BASE
+  );
 };
 
 // ============================================
@@ -432,15 +654,93 @@ export const getQuotes = async (params?: {
 
 export interface Shipment {
   id: number;
+  tai_shipment_id?: string;
+  pro_number?: string;
+  bol_number?: string;
   quote_id?: number;
-  status: 'pending' | 'booked' | 'in_transit' | 'delivered' | 'cancelled';
+  quote_result_id?: number;
+  user_id?: number;
+  customer_id?: number;
+  status: 'Committed' | 'Booked' | 'Ready' | 'InTransit' | 'Delivered' | 'Canceled';
+  status_description?: string;
   carrier_name: string;
+  carrier_scac?: string;
   tracking_number?: string;
-  origin: RateQuoteRequest['origin'];
-  destination: RateQuoteRequest['destination'];
+  carrier_code?: string;
+  service_code?: string;
+  label_url?: string;
+  origin_company?: string;
+  origin_contact?: string;
+  origin_street?: string;
+  origin_street_2?: string;
+  origin_city?: string;
+  origin_state?: string;
+  origin_zip?: string;
+  origin_country?: string;
+  origin_phone?: string;
+  origin_email?: string;
+  origin_ready_time?: string;
+  origin_close_time?: string;
+  origin_instructions?: string;
+  origin_latitude?: number;
+  origin_longitude?: number;
+  destination_company?: string;
+  destination_contact?: string;
+  destination_street?: string;
+  destination_street_2?: string;
+  destination_city?: string;
+  destination_state?: string;
+  destination_zip?: string;
+  destination_country?: string;
+  destination_phone?: string;
+  destination_email?: string;
+  destination_delivery_start?: string;
+  destination_delivery_end?: string;
+  destination_instructions?: string;
+  destination_latitude?: number;
+  destination_longitude?: number;
   pickup_date?: string;
-  delivery_date?: string;
-  total_cost: number;
+  pickup_actual_date?: string;
+  estimated_delivery?: string;
+  actual_delivery?: string;
+  dispatched_at?: string;
+  do_not_dispatch?: boolean;
+  linehaul_charge?: number;
+  fuel_surcharge?: number;
+  accessorial_charge?: number;
+  discount_amount?: number;
+  total_charge: number;
+  total_weight?: number;
+  total_pieces?: number;
+  total_handling_units?: number;
+  weight_units?: string;
+  dimension_units?: string;
+  service_level?: string;
+  equipment_type?: string;
+  temp_min?: number;
+  temp_max?: number;
+  temp_unit?: string;
+  customer_reference?: string;
+  shipper_reference?: string;
+  po_reference?: string;
+  file_number?: string;
+  provider?: string;
+  provider_load_id?: string;
+  provider_shipment_id?: string;
+  pickup_number?: string;
+  current_city?: string;
+  current_state?: string;
+  current_country?: string;
+  last_location_city?: string;
+  last_location_state?: string;
+  last_location_update?: string;
+  internal_notes?: string;
+  carrier_notes?: string;
+  shipment_type?: string;
+  tenant_id?: number;
+  raw_response?: Record<string, unknown> | null;
+  shipengine_rate_quote_id?: number;
+  shipengine_label_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -449,17 +749,64 @@ export const getShipments = async (params?: {
   page?: number;
   limit?: number;
   status?: string;
+  search?: string;
+  sort_by?: string;
+  sort_order?: string;
 }): Promise<XanoResponse<{ items: Shipment[]; total: number }>> => {
   const query = new URLSearchParams();
   if (params?.page) query.set('page', params.page.toString());
   if (params?.limit) query.set('limit', params.limit.toString());
   if (params?.status) query.set('status', params.status);
+  if (params?.search) query.set('search', params.search);
+  // Always send sort params to avoid Xano's broken unquoted default for sort_order
+  query.set('sort_by', params?.sort_by || 'created_at');
+  query.set('sort_order', params?.sort_order || 'desc');
 
-  return xanoRequest<{ items: Shipment[]; total: number }>(`/shipments?${query.toString()}`);
+  const result = await xanoRequest<any>(`/shipments?${query.toString()}`, {}, XANO_DASHBOARD_BASE);
+
+  if (result.error) {
+    // Fallback to empty data on auth, bad-request, or not-found errors
+    if (result.error.includes('400') || result.error.includes('401') || result.error.includes('404')) {
+      return { data: { items: [], total: 0 } };
+    }
+    return { error: result.error };
+  }
+
+  // Xano paginated response: { items: [...], curPage, nextPage, itemsReceived, itemsTotal }
+  const d = result.data;
+  return {
+    data: {
+      items: d?.items || (Array.isArray(d) ? d : []),
+      total: d?.itemsTotal ?? d?.items?.length ?? 0,
+    }
+  };
 };
 
 export const getShipment = async (id: number): Promise<XanoResponse<Shipment>> => {
-  return xanoRequest<Shipment>(`/shipments/${id}`);
+  return xanoRequest<Shipment>(`/shipments/${id}`, {}, XANO_DASHBOARD_BASE);
+};
+
+export const getShipmentByTaiId = async (taiShipmentId: string): Promise<XanoResponse<Shipment>> => {
+  const result = await xanoRequest<any>(`/shipments?search=${encodeURIComponent(taiShipmentId)}&limit=1&sort_by=created_at&sort_order=desc`, {}, XANO_DASHBOARD_BASE);
+
+  if (result.error) {
+    return { error: result.error };
+  }
+
+  const d = result.data;
+  const items = d?.items || (Array.isArray(d) ? d : []);
+  const match = items.find((s: Shipment) => s.tai_shipment_id === taiShipmentId);
+
+  if (match) {
+    return { data: match };
+  }
+
+  // If search didn't find exact match, return first item if it exists
+  if (items.length > 0) {
+    return { data: items[0] };
+  }
+
+  return { error: 'Shipment not found' };
 };
 
 export const createShipment = async (
@@ -468,7 +815,7 @@ export const createShipment = async (
   return xanoRequest<Shipment>('/shipments', {
     method: 'POST',
     body: JSON.stringify(shipment),
-  });
+  }, XANO_DASHBOARD_BASE);
 };
 
 export const updateShipment = async (
@@ -478,7 +825,7 @@ export const updateShipment = async (
   return xanoRequest<Shipment>(`/shipments/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(updates),
-  });
+  }, XANO_DASHBOARD_BASE);
 };
 
 // ============================================
@@ -514,7 +861,24 @@ export interface DashboardStats {
 }
 
 export const getDashboardStats = async (): Promise<XanoResponse<DashboardStats>> => {
-  return xanoRequest<DashboardStats>('/dashboard/stats', {}, XANO_DASHBOARD_BASE);
+  const result = await xanoRequest<DashboardStats>('/dashboard/stats', {}, XANO_DASHBOARD_BASE);
+
+  // Fallback to mock data if unauthorized (401) or not found (404)
+  if (result.error && (result.error.includes('401') || result.error.includes('404'))) {
+    console.warn('[Xano] /dashboard/stats endpoint error, using mock data');
+    return {
+      data: {
+        total_shipments: 0,
+        active_shipments: 0,
+        pending_quotes: 0,
+        total_customers: 0,
+        revenue_mtd: 0,
+        shipments_mtd: 0
+      }
+    };
+  }
+
+  return result;
 };
 
 export interface ActivityLog {

@@ -11,62 +11,59 @@ import {
   TrendingUp,
   Clock,
   ArrowUpRight,
-  Ship,
-  Plane,
-  Truck,
   Loader2,
   RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
 import {
   getDashboardStats,
-  getRecentActivity,
   getShipments,
   type DashboardStats,
-  type ActivityLog,
   type Shipment
 } from '@/lib/xano';
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { user, xanoUser } = useAuth();
+  const { user, xanoUser, xanoReady, profile } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [recentShipments, setRecentShipments] = useState<Shipment[]>([]);
 
-  // Demo user for UI preview
-  const displayName = user?.user_metadata?.name || xanoUser?.name || 'Demo User';
+  const displayName = profile?.full_name || xanoUser?.name || user?.user_metadata?.name || user?.email || 'User';
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [statsRes, shipmentsRes] = await Promise.allSettled([
         getDashboardStats(),
-        getShipments({ limit: 4 }),
+        getShipments({ limit: 15 }),
       ]);
 
       if (statsRes.status === 'fulfilled' && statsRes.value.data) {
         setDashboardStats(statsRes.value.data);
-      } else if (statsRes.status === 'fulfilled' && statsRes.value.error) {
-        toast.error('Failed to load dashboard stats');
       }
 
       if (shipmentsRes.status === 'fulfilled' && shipmentsRes.value.data) {
         const d = shipmentsRes.value.data;
         setRecentShipments(Array.isArray(d) ? d : (d as any).items || []);
-      } else if (shipmentsRes.status === 'fulfilled' && shipmentsRes.value.error) {
-        toast.error('Failed to load recent shipments');
       }
     } catch {
-      toast.error('Failed to load dashboard data');
+      // Silently handle - data will show as empty/loading
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  // Only fetch dashboard data once Xano sync is complete (xanoUser set = fresh token available).
+  // This prevents wasted 400s with stale localStorage tokens.
+  useEffect(() => {
+    if (xanoReady && xanoUser) {
+      loadData();
+    } else if (!xanoReady) {
+      setLoading(false);
+    }
+  }, [xanoReady, xanoUser, loadData]);
 
   const stats = [
     {
@@ -103,29 +100,20 @@ export default function Dashboard() {
     },
   ];
 
-  const getModeIcon = (mode: string) => {
-    switch (mode) {
-      case 'air': return Plane;
-      case 'ocean': return Ship;
-      case 'truck': return Truck;
-      default: return Package;
-    }
-  };
-
   const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'delivered': return 'text-flow-green-500 bg-flow-green-500/10';
-      case 'in_transit': case 'in transit': return 'text-flow-blue-500 bg-flow-blue-500/10';
-      case 'at port': case 'booked': return 'text-amber-500 bg-amber-500/10';
+    switch (status) {
+      case 'Delivered': return 'text-flow-green-500 bg-flow-green-500/10';
+      case 'InTransit': return 'text-flow-blue-500 bg-flow-blue-500/10';
+      case 'Booked': case 'Ready': return 'text-amber-500 bg-amber-500/10';
+      case 'Committed': return 'text-primary bg-primary/10';
+      case 'Canceled': return 'text-red-500 bg-red-500/10';
       default: return 'text-muted-foreground bg-muted';
     }
   };
 
-  const formatOriginDestination = (loc: any): string => {
-    if (!loc) return '-';
-    if (typeof loc === 'string') return loc;
-    const parts = [loc.city, loc.state, loc.country].filter(Boolean);
-    return parts.join(', ') || loc.zip || '-';
+  const formatStatus = (status: string) => {
+    if (status === 'InTransit') return 'In Transit';
+    return status;
   };
 
   return (
@@ -171,97 +159,129 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Quick actions and recent shipments */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks at your fingertips</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
-            <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" asChild>
-              <Link to="/app/quotes/new">
-                <FileText className="h-5 w-5" />
-                <span>New Quote</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" asChild>
-              <Link to="/app/shipments/new">
-                <Package className="h-5 w-5" />
-                <span>Book Shipment</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" asChild>
-              <Link to="/app/tracking">
-                <Clock className="h-5 w-5" />
-                <span>Track Shipment</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" asChild>
-              <Link to="/app/analytics">
-                <BarChart3 className="h-5 w-5" />
-                <span>View Analytics</span>
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Common tasks at your fingertips</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" asChild>
+            <Link to="/app/quotes/new">
+              <FileText className="h-5 w-5" />
+              <span>New Quote</span>
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" asChild>
+            <Link to="/app/shipments/new">
+              <Package className="h-5 w-5" />
+              <span>Book Shipment</span>
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" asChild>
+            <Link to="/app/tracking">
+              <Clock className="h-5 w-5" />
+              <span>Track Shipment</span>
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" asChild>
+            <Link to="/app/analytics">
+              <BarChart3 className="h-5 w-5" />
+              <span>View Analytics</span>
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
-        {/* Recent Shipments */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Recent Shipments</CardTitle>
-              <CardDescription>Your latest shipment activity</CardDescription>
+      {/* Recent Shipments - Full Width Table */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Recent Shipments</CardTitle>
+            <CardDescription>Your latest shipment activity</CardDescription>
+          </div>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/app/shipments">
+              View all
+              <ArrowUpRight className="ml-1 h-4 w-4" />
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/app/shipments">
-                View all
-                <ArrowUpRight className="ml-1 h-4 w-4" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : recentShipments.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No recent shipments found.</p>
-            ) : (
-              <div className="space-y-3">
-                {recentShipments.map((shipment) => {
-                  const ModeIcon = Package;
-                  return (
-                    <div
-                      key={shipment.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-background">
-                          <ModeIcon className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{shipment.tracking_number || `SHP-${shipment.id}`}</p>
-                          <p className="text-xs text-muted-foreground">{shipment.carrier_name}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(shipment.status)}`}>
-                          {shipment.status?.replace(/_/g, ' ')}
-                        </span>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatOriginDestination(shipment.origin)} → {formatOriginDestination(shipment.destination)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          ) : recentShipments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No recent shipments found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="pb-3 pr-4 font-medium">TAI Shipment ID</th>
+                    <th className="pb-3 pr-4 font-medium">Origin</th>
+                    <th className="pb-3 pr-4 font-medium">Destination</th>
+                    <th className="pb-3 pr-4 font-medium">Carrier</th>
+                    <th className="pb-3 pr-4 font-medium">Status</th>
+                    <th className="pb-3 font-medium">Tenant ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentShipments.map((shipment) => {
+                    const originParts = [shipment.origin_city, shipment.origin_state, shipment.origin_zip].filter(Boolean);
+                    const destParts = [shipment.destination_city, shipment.destination_state, shipment.destination_zip].filter(Boolean);
+                    return (
+                      <tr key={shipment.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                        <td className="py-3 pr-4 font-mono text-xs">
+                          {shipment.tai_shipment_id || <span className="text-muted-foreground">-</span>}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span className="whitespace-nowrap">
+                            {originParts.length > 0 ? (
+                              <>
+                                <span className="font-medium">{shipment.origin_city || '-'}</span>
+                                {shipment.origin_state && <span className="text-muted-foreground">, {shipment.origin_state}</span>}
+                                {shipment.origin_zip && <span className="text-muted-foreground"> {shipment.origin_zip}</span>}
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span className="whitespace-nowrap">
+                            {destParts.length > 0 ? (
+                              <>
+                                <span className="font-medium">{shipment.destination_city || '-'}</span>
+                                {shipment.destination_state && <span className="text-muted-foreground">, {shipment.destination_state}</span>}
+                                {shipment.destination_zip && <span className="text-muted-foreground"> {shipment.destination_zip}</span>}
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 whitespace-nowrap">
+                          {shipment.carrier_name || <span className="text-muted-foreground">Pending</span>}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusColor(shipment.status)}`}>
+                            {formatStatus(shipment.status) || '-'}
+                          </span>
+                        </td>
+                        <td className="py-3 font-mono text-xs">
+                          {shipment.tenant_id || <span className="text-muted-foreground">-</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* AI Chat prompt */}
       <Card className="gradient-primary-soft border-primary/20">

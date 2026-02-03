@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageSelector } from './LanguageSelector';
 import { Button } from '@/components/ui/button';
@@ -50,7 +51,8 @@ export function AppLayout() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, xanoUser, profile, signOut } = useAuth();
+  const { user, xanoUser, profile, signOut, isAuthenticated } = useAuth();
+  const { resolvedTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Super admin check: only profile.is_super_admin or xanoUser fallback
@@ -112,11 +114,12 @@ export function AppLayout() {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between p-4 border-b">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center">
-                <span className="text-white font-bold text-lg">F</span>
-              </div>
-              <span className="text-xl font-bold gradient-text">Flow247</span>
+            <Link to="/" className="flex items-center">
+              <img
+                src={resolvedTheme === 'dark' ? '/images/flowi247.dark.png' : '/images/flow247.light.png'}
+                alt="Flow247"
+                className="h-10 w-auto object-contain"
+              />
             </Link>
             <Button
               variant="ghost"
@@ -218,12 +221,12 @@ export function AppLayout() {
             >
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <span className="text-primary font-medium">
-                  {(xanoUser?.name || user?.user_metadata?.name || user?.email || 'D').charAt(0).toUpperCase()}
+                  {(profile?.full_name || xanoUser?.name || user?.user_metadata?.name || user?.email || 'D').charAt(0).toUpperCase()}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">
-                  {xanoUser?.name || user?.user_metadata?.name || 'Demo User'}
+                  {profile?.full_name || xanoUser?.name || user?.user_metadata?.name || user?.email || 'User'}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
                   {user?.email || 'demo@flow247.com'}

@@ -30,6 +30,7 @@ import AnalyticsPage from '@/pages/app/AnalyticsPage';
 import CustomersPage from '@/pages/app/CustomersPage';
 import TrackingPage from '@/pages/app/TrackingPage';
 import NewShipmentPage from '@/pages/app/NewShipmentPage';
+import ShipmentDetailPage from '@/pages/app/ShipmentDetailPage';
 import NewQuotePage from '@/pages/app/NewQuotePage';
 
 // CFS Tracking Pages
@@ -126,6 +127,7 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="shipments" element={<ShipmentsPage />} />
         <Route path="shipments/new" element={<NewShipmentPage />} />
+        <Route path="shipments/:id" element={<ShipmentDetailPage />} />
         <Route path="quotes" element={<QuotesPage />} />
         <Route path="quotes/new" element={<NewQuotePage />} />
         <Route path="chat" element={<ChatPage />} />
