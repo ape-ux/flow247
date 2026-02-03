@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageSelector } from './LanguageSelector';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -262,6 +263,8 @@ export function AppLayout() {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2">
+            <NotificationBell />
+
             {/* Admin dropdown - only visible to super admins */}
             {isSuperAdmin && (
               <DropdownMenu>
