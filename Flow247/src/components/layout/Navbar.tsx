@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageSelector } from './LanguageSelector';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
 
 interface NavbarProps {
@@ -15,6 +16,7 @@ interface NavbarProps {
 export function Navbar({ brand = 'flow247' }: NavbarProps) {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
+  const { resolvedTheme } = useTheme();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -52,23 +54,10 @@ export function Navbar({ brand = 'flow247' }: NavbarProps) {
           {/* Logo */}
           <Link to="/" className="flex items-center group">
             <img
-              src="/images/flow247-logo.png"
+              src={resolvedTheme === 'dark' ? '/images/flowi247.dark.png' : '/images/flow247.light.png'}
               alt="Flow247"
-              className="h-12 md:h-20 w-auto object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-              }}
+              className="h-12 md:h-16 w-auto object-contain"
             />
-            <div className="hidden items-center gap-2">
-              <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center glow-cyan group-hover:glow-cyan-lg transition-all">
-                <span className="text-white font-bold text-lg">F</span>
-              </div>
-              <span className="text-xl font-bold">
-                <span className="text-white">{config.name}</span>
-                {config.suffix && <span className="gradient-text">{config.suffix}</span>}
-              </span>
-            </div>
           </Link>
 
           {/* Desktop Navigation */}
