@@ -20,6 +20,7 @@ import {
   getCfsTasks,
   getCfsMonitorDashboard,
   getCfsDashboardStats,
+  getCfsTopDestinations,
   getActiveAlerts,
   getDispatchPending,
   type DashboardStats,
@@ -93,7 +94,7 @@ export function useRecentActivity(limit = 10) {
 }
 
 // ============ Shipments ============
-export function useShipments(params?: { page?: number; limit?: number; status?: string }) {
+export function useShipments(params?: { page?: number; limit?: number; status?: string; search?: string; sort_by?: string; sort_order?: string }) {
   return useQuery({
     queryKey: queryKeys.shipments.list(params),
     queryFn: async () => {
@@ -339,5 +340,18 @@ export function useCfsDispatchPending(params?: { page?: number; per_page?: numbe
       };
     },
     staleTime: 30_000,
+  });
+}
+
+export function useCfsTopDestinations() {
+  return useQuery({
+    queryKey: ['cfs', 'topDestinations'] as const,
+    queryFn: async () => {
+      const res = await getCfsTopDestinations();
+      if (res.error) throw new Error(res.error);
+      const d = res.data as any;
+      return Array.isArray(d) ? d : d?.items || d?.destinations || [];
+    },
+    staleTime: 120_000,
   });
 }

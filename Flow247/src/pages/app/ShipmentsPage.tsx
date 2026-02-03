@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Ship, Plus, Search, Filter, Loader2, RefreshCw, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { getShipments, type Shipment } from '@/lib/xano';
-import { useAuth } from '@/contexts/AuthContext';
+import { type Shipment } from '@/lib/xano';
+import { useShipments } from '@/hooks/useXanoQuery';
 
 const getStatusVariant = (status: string): 'success' | 'info' | 'warning' | 'destructive' | 'secondary' | 'default' => {
   switch (status) {
@@ -34,45 +33,23 @@ const formatStatus = (status: string) => {
 
 export default function ShipmentsPage() {
   const navigate = useNavigate();
-  const { xanoReady, xanoUser } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getShipments({
-        limit: 20,
-        page,
-        search: search || undefined,
-        status: statusFilter || undefined,
-        sort_by: sortBy,
-        sort_order: sortOrder,
-      });
-      if (res.data) {
-        setShipments(res.data.items || []);
-        setTotal(res.data.total || 0);
-      } else if (res.error) {
-        toast.error('Failed to load shipments: ' + res.error);
-      }
-    } catch {
-      toast.error('Failed to load shipments');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, statusFilter, sortBy, sortOrder]);
+  const { data: shipmentsData, isLoading: loading, refetch } = useShipments({
+    limit: 20,
+    page,
+    search: search || undefined,
+    status: statusFilter || undefined,
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  });
 
-  useEffect(() => {
-    if (xanoReady && xanoUser) {
-      loadData();
-    }
-  }, [xanoReady, xanoUser, loadData]);
+  const shipments: Shipment[] = shipmentsData?.items || [];
+  const total: number = shipmentsData?.total || 0;
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
@@ -86,7 +63,6 @@ export default function ShipmentsPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    loadData();
   };
 
   const statusOptions = ['', 'Committed', 'Booked', 'Ready', 'InTransit', 'Delivered', 'Canceled'];
@@ -112,7 +88,7 @@ export default function ShipmentsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Loading...' : 'Refresh'}
           </Button>

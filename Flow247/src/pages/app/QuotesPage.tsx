@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import {
   FileText,
   Plus,
@@ -27,8 +27,8 @@ import {
 } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getQuotes, getQuoteResultById, type QuoteRequest, type QuoteResultDetail } from '@/lib/xano';
-import { useAuth } from '@/contexts/AuthContext';
+import { getQuoteResultById, type QuoteRequest, type QuoteResultDetail } from '@/lib/xano';
+import { useQuotes } from '@/hooks/useXanoQuery';
 
 const getStatusVariant = (status: string): 'success' | 'info' | 'warning' | 'destructive' | 'secondary' | 'default' => {
   switch (status?.toLowerCase()) {
@@ -40,39 +40,13 @@ const getStatusVariant = (status: string): 'success' | 'info' | 'warning' | 'des
 };
 
 export default function QuotesPage() {
-  const { xanoReady, xanoUser } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [quotes, setQuotes] = useState<QuoteRequest[]>([]);
+  const { data: quotesData, isLoading: loading, refetch } = useQuotes({ limit: 50 });
+  const quotes: QuoteRequest[] = quotesData?.items || [];
 
   // Quote Result lookup
   const [lookupId, setLookupId] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupResult, setLookupResult] = useState<QuoteResultDetail | null>(null);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getQuotes({ limit: 50 });
-      if (res.data) {
-        const d = res.data;
-        setQuotes(Array.isArray(d) ? d : []);
-      } else if (res.error) {
-        if (!res.error.includes('404')) {
-          toast.error('Failed to load quotes: ' + res.error);
-        }
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (xanoReady && xanoUser) {
-      loadData();
-    }
-  }, [xanoReady, xanoUser, loadData]);
 
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +92,7 @@ export default function QuotesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Loading...' : 'Refresh'}
           </Button>

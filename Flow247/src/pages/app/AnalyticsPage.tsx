@@ -1,79 +1,38 @@
-import { useState, useEffect, useCallback } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Package, Users, Clock, ArrowUpRight, ArrowDownRight, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import {
-  getDashboardStats,
-  getRecentActivity,
-  getCfsTopDestinations,
-  type DashboardStats,
-  type ActivityLog
-} from '@/lib/xano';
+import { useDashboardStats, useRecentActivity, useCfsTopDestinations } from '@/hooks/useXanoQuery';
 
 export default function AnalyticsPage() {
-  const [loading, setLoading] = useState(true);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [topRoutes, setTopRoutes] = useState<any[]>([]);
-  const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([]);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [statsRes, activityRes, routesRes] = await Promise.allSettled([
-        getDashboardStats(),
-        getRecentActivity(10),
-        getCfsTopDestinations(),
-      ]);
-
-      if (statsRes.status === 'fulfilled' && statsRes.value.data) {
-        setDashboardStats(statsRes.value.data);
-      } else if (statsRes.status === 'fulfilled' && statsRes.value.error) {
-        toast.error('Failed to load stats');
-      }
-
-      if (activityRes.status === 'fulfilled' && activityRes.value.data) {
-        const d = activityRes.value.data;
-        setRecentActivity(Array.isArray(d) ? d : []);
-      }
-
-      if (routesRes.status === 'fulfilled' && routesRes.value.data) {
-        const d = routesRes.value.data;
-        setTopRoutes(Array.isArray(d) ? d : (d as any).items || (d as any).destinations || []);
-      }
-    } catch {
-      toast.error('Failed to load analytics data');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
+  const { data: dashboardStats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats();
+  const { data: recentActivity, isLoading: activityLoading } = useRecentActivity(10);
+  const { data: topRoutes, isLoading: routesLoading } = useCfsTopDestinations();
+  const loading = statsLoading || activityLoading || routesLoading;
 
   const stats = [
     {
       label: 'Revenue MTD',
-      value: loading ? '-' : dashboardStats?.revenue_mtd != null ? `$${Number(dashboardStats.revenue_mtd).toLocaleString()}` : '-',
+      value: statsLoading ? '-' : dashboardStats?.revenue_mtd != null ? `$${Number(dashboardStats.revenue_mtd).toLocaleString()}` : '-',
       change: '',
       trend: 'up' as const,
       icon: DollarSign,
     },
     {
       label: 'Active Shipments',
-      value: loading ? '-' : String(dashboardStats?.active_shipments ?? '-'),
+      value: statsLoading ? '-' : String(dashboardStats?.active_shipments ?? '-'),
       change: '',
       trend: 'up' as const,
       icon: Package,
     },
     {
       label: 'Total Customers',
-      value: loading ? '-' : String(dashboardStats?.total_customers ?? '-'),
+      value: statsLoading ? '-' : String(dashboardStats?.total_customers ?? '-'),
       change: '',
       trend: 'up' as const,
       icon: Users,
     },
     {
       label: 'Shipments MTD',
-      value: loading ? '-' : String(dashboardStats?.shipments_mtd ?? '-'),
+      value: statsLoading ? '-' : String(dashboardStats?.shipments_mtd ?? '-'),
       change: '',
       trend: 'up' as const,
       icon: Clock,
@@ -103,6 +62,9 @@ export default function AnalyticsPage() {
     return `${diffDay} days ago`;
   };
 
+  const activityList = Array.isArray(recentActivity) ? recentActivity : [];
+  const routesList = Array.isArray(topRoutes) ? topRoutes : [];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -117,7 +79,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => refetchStats()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Loading...' : 'Refresh'}
           </Button>
@@ -144,7 +106,7 @@ export default function AnalyticsPage() {
             </div>
             <div className="mt-4">
               <p className="text-2xl font-bold">
-                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : stat.value}
+                {statsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : stat.value}
               </p>
               <p className="text-sm text-muted-foreground">{stat.label}</p>
             </div>
@@ -171,15 +133,15 @@ export default function AnalyticsPage() {
         {/* Top Routes / Destinations */}
         <div className="glass-card rounded-xl p-6 animate-slide-up" style={{ animationDelay: '500ms' }}>
           <h3 className="mb-4 text-lg font-semibold">Top Destinations</h3>
-          {loading ? (
+          {routesLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : topRoutes.length === 0 ? (
+          ) : routesList.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No destination data available.</p>
           ) : (
             <div className="space-y-4">
-              {topRoutes.slice(0, 6).map((route: any, i: number) => (
+              {routesList.slice(0, 6).map((route: any, i: number) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
@@ -215,15 +177,15 @@ export default function AnalyticsPage() {
       {/* Recent Activity */}
       <div className="glass-card rounded-xl p-6 animate-slide-up" style={{ animationDelay: '600ms' }}>
         <h3 className="mb-4 text-lg font-semibold">Recent Activity</h3>
-        {loading ? (
+        {activityLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : recentActivity.length === 0 ? (
+        ) : activityList.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">No recent activity found.</p>
         ) : (
           <div className="space-y-4">
-            {recentActivity.map((activity, i) => (
+            {activityList.map((activity: any, i: number) => (
               <div key={activity.id || i} className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/30 transition-colors">
                 <div className={`flex h-2 w-2 mt-2 rounded-full ${getActivityDotColor(activity.type)}`} />
                 <div className="flex-1">
