@@ -42,7 +42,7 @@ export function Footer({ brand = 'flow247' }: FooterProps) {
             </p>
             <div className="flex items-center gap-3">
               <a
-                href="https://twitter.com/apeglobal"
+                href="https://x.com/apeglobalusa"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-primary/20 hover:border-primary/30 transition-all"
@@ -50,7 +50,7 @@ export function Footer({ brand = 'flow247' }: FooterProps) {
                 <Twitter className="h-4 w-4 text-muted-foreground" />
               </a>
               <a
-                href="https://linkedin.com/company/apeglobal"
+                href="https://www.linkedin.com/company/104259249/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-primary/20 hover:border-primary/30 transition-all"
@@ -58,7 +58,7 @@ export function Footer({ brand = 'flow247' }: FooterProps) {
                 <Linkedin className="h-4 w-4 text-muted-foreground" />
               </a>
               <a
-                href="https://github.com/apeglobal"
+                href="https://github.com/ape-ux/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-primary/20 hover:border-primary/30 transition-all"

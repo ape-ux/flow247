@@ -53,6 +53,9 @@ import AdminDashboard from '@/pages/app/admin/AdminDashboard';
 
 // Static Pages
 import PricingPage from '@/pages/PricingPage';
+import PrivacyPage from '@/pages/PrivacyPage';
+import TermsPage from '@/pages/TermsPage';
+import SecurityPage from '@/pages/SecurityPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -173,8 +176,9 @@ function AppRoutes() {
       <Route path="/features" element={<PlaceholderPage title="Features" />} />
       <Route path="/about" element={<PlaceholderPage title="About" />} />
       <Route path="/contact" element={<PlaceholderPage title="Contact" />} />
-      <Route path="/privacy" element={<PlaceholderPage title="Privacy Policy" />} />
-      <Route path="/terms" element={<PlaceholderPage title="Terms of Service" />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/security" element={<SecurityPage />} />
       <Route path="/demo" element={<PlaceholderPage title="Demo" />} />
 
       {/* Catch-all */}
