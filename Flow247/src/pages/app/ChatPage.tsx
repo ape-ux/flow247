@@ -11,19 +11,17 @@ import {
   MapPin,
   Package,
   Zap,
-  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  getOrCreateConversation,
-  getConversationMessages,
-  getConversations,
-  deleteConversation,
-  streamAgentMessage,
-} from '@/lib/xano';
+  bridgeChat,
+  bridgeGetConversations,
+  bridgeGetConversation,
+  bridgeDeleteConversation,
+  generateConversationId,
+} from '@/lib/bridge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -41,9 +39,9 @@ interface Message {
 }
 
 interface Conversation {
-  id: number;
+  id: string;
   title?: string;
-  created_at?: string;
+  status?: string;
   updated_at?: string;
   message_count?: number;
 }
@@ -137,21 +135,21 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<number | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { xanoUser, user } = useAuth();
+  const { user, xanoUser } = useAuth();
 
   // ============ Load conversations list ============
 
   const loadConversations = useCallback(async () => {
     setLoadingConversations(true);
     try {
-      const { data, error } = await getConversations({ limit: 30 });
+      const { data, error } = await bridgeGetConversations(30);
       if (!error && data) {
         setConversations(data as Conversation[]);
       }
@@ -165,54 +163,24 @@ export default function ChatPage() {
   // ============ Initialize conversation ============
 
   useEffect(() => {
-    const initConversation = async () => {
-      try {
-        const { data: conv, error } = await getOrCreateConversation();
-        if (error || !conv) {
-          console.error('Failed to create conversation:', error);
-          return;
-        }
+    const initConversation = () => {
+      // Generate a new conversation ID (bridge will create it on first message)
+      const newConvId = generateConversationId();
+      setConversationId(newConvId);
 
-        setConversationId(conv.id);
+      // Welcome message
+      const userName = xanoUser?.name
+        || (user as any)?.user_metadata?.name
+        || null;
 
-        // Load existing messages
-        if (conv.id) {
-          try {
-            const { data: savedMessages } = await getConversationMessages(conv.id);
-            if (savedMessages && savedMessages.length > 0) {
-              const loadedMessages: Message[] = savedMessages.map((msg: any) => ({
-                id: msg.id?.toString() || Date.now().toString(),
-                role: msg.role as 'user' | 'assistant',
-                content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
-                timestamp: new Date(msg.created_at || Date.now()),
-              }));
-              setMessages(loadedMessages);
-              return;
-            }
-          } catch {
-            console.log('Starting fresh conversation');
-          }
-        }
-
-        // Welcome message
-        const currentUser = xanoUser || user;
-        const userName = currentUser
-          ? 'name' in currentUser
-            ? (currentUser as any).name
-            : currentUser.user_metadata?.name
-          : null;
-
-        setMessages([
-          {
-            id: 'welcome-' + Date.now(),
-            role: 'assistant',
-            content: `Hey${userName ? ` ${userName}` : ''}! 👋 I'm your **Freight Dispatch Assistant**.\n\nI can help you with:\n- **Quoting** freight rates (LTL, LCL, drayage)\n- **Booking** shipments with one confirmation\n- **Tracking** your shipments in real-time\n- **Documents** (BOL, commercial invoices, customs)\n\nWhat can I do for you?`,
-            timestamp: new Date(),
-          },
-        ]);
-      } catch (error) {
-        console.error('Failed to initialize conversation:', error);
-      }
+      setMessages([
+        {
+          id: 'welcome-' + Date.now(),
+          role: 'assistant',
+          content: `Hey${userName ? ` ${userName}` : ''}! 👋 I'm your **Freight Dispatch Assistant**.\n\nI can help you with:\n- **Quoting** freight rates (LTL, LCL, drayage)\n- **Booking** shipments with one confirmation\n- **Tracking** your shipments in real-time\n- **Documents** (BOL, commercial invoices, customs)\n\nWhat can I do for you?`,
+          timestamp: new Date(),
+        },
+      ]);
     };
 
     if (xanoUser || user) {
@@ -249,14 +217,22 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      const userContext = {
-        agent_name: 'Manager Agent',
-        user_id: xanoUser?.id || user?.id,
-        name: xanoUser?.name || user?.user_metadata?.name,
-        email: xanoUser?.email || user?.email,
-        tenant_id: xanoUser?.tenant_id,
-      };
+      // Build messages array for the bridge (exclude welcome messages and empty content)
+      const chatMessages = messages
+        .filter((m) => !m.id.startsWith('welcome-') && m.content.trim())
+        .map((m) => ({ role: m.role, content: m.content }));
 
+      // Add the new user message
+      chatMessages.push({ role: 'user', content: text });
+
+      // Ensure we have a conversation ID
+      let convId = conversationId;
+      if (!convId) {
+        convId = generateConversationId();
+        setConversationId(convId);
+      }
+
+      // Create placeholder assistant message for streaming
       const assistantMessageId = (Date.now() + 1).toString();
       setMessages((prev) => [
         ...prev,
@@ -270,13 +246,11 @@ export default function ChatPage() {
 
       let assistantContent = '';
 
-      await streamAgentMessage(
-        {
-          message: text,
-          conversation_id: conversationId?.toString(),
-          context: userContext,
-        },
+      await bridgeChat(
+        chatMessages,
+        convId,
         (chunk) => {
+          // Clean up any escaped characters
           const cleanedChunk = chunk
             .replace(/\\u0027/g, "'")
             .replace(/\\u0022/g, '"')
@@ -328,54 +302,57 @@ export default function ChatPage() {
   // ============ New conversation ============
 
   const startNewConversation = async () => {
-    try {
-      const { data: conv, error } = await getOrCreateConversation();
-      if (error || !conv) return;
+    const newConvId = generateConversationId();
+    setConversationId(newConvId);
+    setMessages([]);
 
-      setConversationId(conv.id);
-      setMessages([]);
-      
-      const currentUser = xanoUser || user;
-      const userName = currentUser
-        ? 'name' in currentUser
-          ? (currentUser as any).name
-          : currentUser.user_metadata?.name
-        : null;
+    const userName = xanoUser?.name
+      || (user as any)?.user_metadata?.name
+      || null;
 
-      setMessages([
-        {
-          id: 'welcome-' + Date.now(),
-          role: 'assistant',
-          content: `New conversation started! 🚀\n\nHow can I help you${userName ? `, ${userName}` : ''}?`,
-          timestamp: new Date(),
-        },
-      ]);
+    setMessages([
+      {
+        id: 'welcome-' + Date.now(),
+        role: 'assistant',
+        content: `New conversation started! 🚀\n\nHow can I help you${userName ? `, ${userName}` : ''}?`,
+        timestamp: new Date(),
+      },
+    ]);
 
-      loadConversations();
-      setSidebarOpen(false);
-    } catch (err) {
-      console.error('Failed to start new conversation:', err);
-    }
+    loadConversations();
+    setSidebarOpen(false);
   };
 
   // ============ Load conversation ============
 
-  const loadConversation = async (convId: number) => {
+  const loadConversation = async (convId: string) => {
     try {
       setConversationId(convId);
-      const { data: savedMessages } = await getConversationMessages(convId);
-      if (savedMessages && savedMessages.length > 0) {
+      const { data, error } = await bridgeGetConversation(convId);
+
+      if (error) {
+        console.error('Failed to load conversation:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load conversation.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (data?.messages && data.messages.length > 0) {
         setMessages(
-          savedMessages.map((msg: any) => ({
-            id: msg.id?.toString() || Date.now().toString(),
+          data.messages.map((msg: any, index: number) => ({
+            id: msg.id?.toString() || `${convId}-${index}`,
             role: msg.role as 'user' | 'assistant',
             content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
-            timestamp: new Date(msg.created_at || Date.now()),
+            timestamp: msg.created_at ? new Date(msg.created_at) : new Date(),
           }))
         );
       } else {
         setMessages([]);
       }
+
       setSidebarOpen(false);
     } catch (err) {
       console.error('Failed to load conversation:', err);
@@ -384,10 +361,11 @@ export default function ChatPage() {
 
   // ============ Delete conversation ============
 
-  const handleDeleteConversation = async (convId: number, e: React.MouseEvent) => {
+  const handleDeleteConversation = async (convId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await deleteConversation(convId);
+      await bridgeDeleteConversation(convId);
+      // Remove from local state regardless (bridge may not support DELETE yet)
       setConversations((prev) => prev.filter((c) => c.id !== convId));
       if (conversationId === convId) {
         startNewConversation();
@@ -465,11 +443,11 @@ export default function ChatPage() {
                   <MessageSquare className="h-4 w-4 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate">
-                      {conv.title || `Conversation #${conv.id}`}
+                      {conv.title || `Chat ${conv.id.slice(0, 8)}...`}
                     </p>
-                    {conv.created_at && (
+                    {conv.updated_at && (
                       <p className="text-[10px] text-muted-foreground">
-                        {new Date(conv.created_at).toLocaleDateString()}
+                        {new Date(conv.updated_at).toLocaleDateString()}
                       </p>
                     )}
                   </div>
@@ -638,7 +616,7 @@ export default function ChatPage() {
             </Button>
           </form>
           <p className="text-[10px] text-muted-foreground text-center mt-1.5">
-            Powered by FreightFlow AI • Manager Agent
+            Powered by FreightFlow AI • Bridge Agent
           </p>
         </div>
       </div>

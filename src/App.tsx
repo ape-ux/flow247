@@ -22,6 +22,7 @@ import NewQuotePage from "./pages/app/NewQuotePage";
 import QuoteResultsPage from "./pages/app/QuoteResultsPage";
 import NewShipmentPage from "./pages/app/NewShipmentPage";
 import ShipmentEditPage from "./pages/app/ShipmentEditPage";
+import CustomersPage from "./pages/app/CustomersPage";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ function App() {
             <Route path="shipments" element={<ShipmentsPage />} />
                 <Route path="shipments/new" element={<NewShipmentPage />} />
                 <Route path="shipments/edit" element={<ShipmentEditPage />} />
+                <Route path="customers" element={<CustomersPage />} />
                 <Route path="billing" element={<BillingPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>

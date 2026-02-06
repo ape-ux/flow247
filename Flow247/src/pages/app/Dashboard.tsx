@@ -256,8 +256,8 @@ export default function Dashboard() {
                         {shipment.status?.replace(/_/g, ' ')}
                       </span>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {formatOriginDestination(shipment.origin)} →{' '}
-                        {formatOriginDestination(shipment.destination)}
+                        {formatOriginDestination((shipment as any).origin)} →{' '}
+                        {formatOriginDestination((shipment as any).destination)}
                       </p>
                     </div>
                   </div>

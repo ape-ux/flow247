@@ -1,16 +1,16 @@
 // Xano API Client for Flow247
 // Used for AI agents, middleware, and user sync
 
-const XANO_API_BASE = import.meta.env.VITE_XANO_API_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:QC35j52Y';
-const XANO_MCP_BASE = import.meta.env.VITE_XANO_MCP_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:freight_flow_ai_v1/mcp';
-const XANO_AGENT_BASE = import.meta.env.VITE_XANO_AGENT_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:AKAonta6';
-const XANO_EXFREIGHT_BASE = import.meta.env.VITE_XANO_EXFREIGHT_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:exfreight';
-const XANO_DASHBOARD_BASE = import.meta.env.VITE_XANO_DASHBOARD_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:I5SJFe7I';
-const XANO_STG_OPS_BASE = import.meta.env.VITE_XANO_STG_OPS_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:M6Xz5_I1';
-const XANO_STG_FINANCIALS_BASE = import.meta.env.VITE_XANO_STG_FINANCIALS_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:MDtcogTI';
-const XANO_STG_ARRIVAL_BASE = import.meta.env.VITE_XANO_STG_ARRIVAL_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:lt8FkLwE';
-const XANO_SHIPPING_BASE = import.meta.env.VITE_XANO_SHIPPING_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:E1Skvg8o';
-const XANO_DB_BASE = import.meta.env.VITE_XANO_DB_BASE || 'https://xjlt-4ifj-k7qu.n7e.xano.io/api:MOZVC8ir';
+const XANO_API_BASE = import.meta.env.VITE_XANO_API_BASE || '/xano/api:QC35j52Y';
+const XANO_MCP_BASE = import.meta.env.VITE_XANO_MCP_BASE || '/xano/api:freight_flow_ai_v1/mcp';
+const XANO_AGENT_BASE = import.meta.env.VITE_XANO_AGENT_BASE || '/xano/api:AKAonta6';
+const XANO_EXFREIGHT_BASE = import.meta.env.VITE_XANO_EXFREIGHT_BASE || '/xano/api:exfreight';
+const XANO_DASHBOARD_BASE = import.meta.env.VITE_XANO_DASHBOARD_BASE || '/xano/api:I5SJFe7I';
+const XANO_STG_OPS_BASE = import.meta.env.VITE_XANO_STG_OPS_BASE || '/xano/api:M6Xz5_I1';
+const XANO_STG_FINANCIALS_BASE = import.meta.env.VITE_XANO_STG_FINANCIALS_BASE || '/xano/api:MDtcogTI';
+const XANO_STG_ARRIVAL_BASE = import.meta.env.VITE_XANO_STG_ARRIVAL_BASE || '/xano/api:lt8FkLwE';
+const XANO_SHIPPING_BASE = import.meta.env.VITE_XANO_SHIPPING_BASE || '/xano/api:E1Skvg8o';
+const XANO_DB_BASE = import.meta.env.VITE_XANO_DB_BASE || '/xano/api:MOZVC8ir';
 
 // Types
 export interface XanoUser {
@@ -833,7 +833,7 @@ export const updateShipment = async (
 // ============================================
 
 export const exfreightGetRates = async (
-  request: RateQuoteRequest
+  request: LtlRateQuoteRequest
 ): Promise<XanoResponse<QuoteResult[]>> => {
   return xanoRequest<QuoteResult[]>('/rating', {
     method: 'POST',
@@ -899,7 +899,7 @@ export const getRecentActivity = async (
 // Admin APIs
 // ============================================
 
-export interface AdminUser extends XanoUser {
+export interface AdminUser extends Omit<XanoUser, 'last_login'> {
   subscription_plan?: string;
   subscription_status?: string;
   last_login?: string;

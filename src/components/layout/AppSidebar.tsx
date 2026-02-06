@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { MessageSquare, CreditCard, FileText, Ship, Settings, LogOut } from 'lucide-react';
+import { MessageSquare, CreditCard, FileText, Ship, Settings, LogOut, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
@@ -22,6 +22,7 @@ const navItems = [
   { title: 'Chats', url: '/app/chat', icon: MessageSquare },
   { title: 'Quotes', url: '/app/quotes', icon: FileText },
   { title: 'Shipments', url: '/app/shipments', icon: Ship },
+  { title: 'Customers', url: '/app/customers', icon: Users },
   { title: 'Billing', url: '/app/billing', icon: CreditCard },
   { title: 'Settings', url: '/app/settings', icon: Settings },
 ];

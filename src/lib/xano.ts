@@ -564,6 +564,134 @@ class XanoClient {
       return null;
     }
   }
+
+  // Create a new shipment in Xano
+  async createShipment(shipmentData: {
+    sender_name: string;
+    sender_email: string;
+    sender_phone: string;
+    sender_company?: string;
+    sender_address: string;
+    recipient_name: string;
+    recipient_email: string;
+    recipient_phone: string;
+    recipient_company?: string;
+    recipient_address: string;
+    weight: number;
+    length: number;
+    width: number;
+    height: number;
+    service: string;
+    insurance?: number;
+    contents: string;
+    special_instructions?: string;
+  }): Promise<any> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (this.authToken) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.authToken}`;
+    }
+
+    try {
+      const response = await fetch(`https://xjlt-4ifj-k7qu.n7e.xano.io/api:E1Skvg8o/shipments`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          // Sender information
+          sender_name: shipmentData.sender_name,
+          sender_email: shipmentData.sender_email,
+          sender_phone: shipmentData.sender_phone,
+          sender_company: shipmentData.sender_company || '',
+          sender_address: shipmentData.sender_address,
+          
+          // Recipient information
+          recipient_name: shipmentData.recipient_name,
+          recipient_email: shipmentData.recipient_email,
+          recipient_phone: shipmentData.recipient_phone,
+          recipient_company: shipmentData.recipient_company || '',
+          recipient_address: shipmentData.recipient_address,
+          
+          // Package details
+          weight: shipmentData.weight,
+          length: shipmentData.length,
+          width: shipmentData.width,
+          height: shipmentData.height,
+          service_level: shipmentData.service,
+          insurance_value: shipmentData.insurance || 0,
+          package_contents: shipmentData.contents,
+          special_instructions: shipmentData.special_instructions || '',
+          
+          // Auto-calculated fields
+          created_at: new Date().toISOString(),
+          status: 'pending',
+          tracking_number: '', // Will be assigned by carrier
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create shipment: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error creating shipment:', error);
+      throw error;
+    }
+  }
+
+  // Create a new customer in Xano
+  async createCustomer(customerData: {
+    company_name: string;
+    contact_name: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+    state: string;
+    zip_code: string;
+    customer_type?: string;
+  }): Promise<any> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (this.authToken) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.authToken}`;
+    }
+
+    try {
+      const response = await fetch(`https://xjlt-4ifj-k7qu.n7e.xano.io/api:E1Skvg8o/customers`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          company_name: customerData.company_name,
+          contact_name: customerData.contact_name,
+          email: customerData.email,
+          phone: customerData.phone,
+          street_address: customerData.address,
+          city: customerData.city,
+          state: customerData.state,
+          zip_code: customerData.zip_code,
+          customer_type: customerData.customer_type || 'shipper',
+          is_active: true,
+          created_at: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create customer: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error creating customer:', error);
+      throw error;
+    }
+  }
 }
 
 export const xano = new XanoClient(XANO_API_BASE, XANO_MCP_BASE);

@@ -252,9 +252,9 @@ export default function TrackingPage() {
                   </Badge>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span>{formatLocation(ship.origin)}</span>
+                  <span>{formatLocation((ship as any).origin)}</span>
                   <ArrowRight className="h-3 w-3" />
-                  <span>{formatLocation(ship.destination)}</span>
+                  <span>{formatLocation((ship as any).destination)}</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
                   {ship.carrier_name}
@@ -391,10 +391,10 @@ export default function TrackingPage() {
             <div className="mt-6">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-muted-foreground">
-                  {formatLocation(shipment.origin)}
+                  {formatLocation((shipment as any).origin)}
                 </span>
                 <span className="text-muted-foreground">
-                  {formatLocation(shipment.destination)}
+                  {formatLocation((shipment as any).destination)}
                 </span>
               </div>
               <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
@@ -402,13 +402,13 @@ export default function TrackingPage() {
                   className="h-full rounded-full bg-gradient-to-r from-primary to-secondary transition-all duration-500"
                   style={{
                     width: `${
-                      shipment.status === 'delivered'
+                      (shipment.status as string) === 'delivered' || shipment.status === 'Delivered'
                         ? 100
-                        : shipment.status === 'in_transit'
+                        : (shipment.status as string) === 'in_transit' || shipment.status === 'InTransit'
                           ? 60
-                          : shipment.status === 'booked'
+                          : (shipment.status as string) === 'booked' || shipment.status === 'Booked'
                             ? 15
-                            : shipment.status === 'at port'
+                            : (shipment.status as string) === 'at port' || shipment.status === 'Ready'
                               ? 30
                               : 5
                     }%`,
@@ -428,7 +428,7 @@ export default function TrackingPage() {
                 <Package className="h-6 w-6 text-green-500" />
               </div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Origin</p>
-              <p className="font-semibold">{formatLocation(shipment.origin)}</p>
+              <p className="font-semibold">{formatLocation((shipment as any).origin)}</p>
             </div>
             <div
               className="glass-card rounded-xl p-4 animate-slide-up text-center"
@@ -452,7 +452,7 @@ export default function TrackingPage() {
               <p className="text-xs text-muted-foreground uppercase tracking-wider">
                 Destination
               </p>
-              <p className="font-semibold">{formatLocation(shipment.destination)}</p>
+              <p className="font-semibold">{formatLocation((shipment as any).destination)}</p>
             </div>
           </div>
 

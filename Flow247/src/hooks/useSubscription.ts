@@ -66,7 +66,7 @@ export function useSubscription() {
         const planKey = data.plan_id as keyof typeof PLANS;
         const plan = PLANS[planKey] || PLANS.free;
         const isActive = ['active', 'trialing'].includes(data.status);
-        const isTrial = data.status === 'trialing' || (
+        const isTrial = data.status === 'trialing' || !!(
           data.plan_id === 'free' &&
           data.current_period_end &&
           new Date(data.current_period_end) > new Date()

@@ -12,11 +12,14 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { xano } from '@/lib/xano';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [billingSameAsPhysical, setBillingSameAsPhysical] = useState(true);
+  const [llmApiKey, setLlmApiKey] = useState('');
+  const [xanoAgentId, setXanoAgentId] = useState('3');
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -69,6 +72,25 @@ export default function SettingsPage() {
       setIsLoading(true);
       
       try {
+        // Load LLM API key from Supabase profiles table
+        if (user?.id) {
+          const { data: profileData, error } = await supabase
+            .from('profiles')
+            .select('llm_api_key')
+            .eq('id', user.id)
+            .single();
+          
+          if (profileData && !error) {
+            setLlmApiKey(profileData.llm_api_key || '');
+          }
+        }
+        
+        // Load Xano agent ID from localStorage
+        const savedAgentId = localStorage.getItem('xano_agent_id');
+        if (savedAgentId) {
+          setXanoAgentId(savedAgentId);
+        }
+        
         // Try to load from database first if authenticated
         if (xano.isAuthenticated()) {
           const dbProfile = await xano.getCustomerProfile();
@@ -104,7 +126,7 @@ export default function SettingsPage() {
     };
     
     loadProfile();
-  }, []);
+  }, [user]);
 
   const handleInputChange = (field: string, value: any) => {
     setProfile(prev => ({
@@ -136,7 +158,32 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Save to localStorage first
+      // Save LLM API key to Supabase profiles table
+      if (user?.id && llmApiKey) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            llm_api_key: llmApiKey,
+            updated_at: new Date().toISOString(),
+          });
+        
+        if (profileError) {
+          console.error('Error saving LLM API key:', profileError);
+          toast({
+            title: 'Warning',
+            description: 'LLM API key could not be saved to database. Using local storage.',
+            variant: 'destructive',
+          });
+          // Fallback to localStorage
+          localStorage.setItem('llm_api_key', llmApiKey);
+        }
+      }
+      
+      // Save Xano agent ID to localStorage
+      localStorage.setItem('xano_agent_id', xanoAgentId);
+      
+      // Save customer profile to localStorage first
       localStorage.setItem('customer_profile', JSON.stringify(profile));
       
       // If authenticated, save to database
@@ -154,8 +201,8 @@ export default function SettingsPage() {
         });
         
         toast({
-          title: 'Profile Saved',
-          description: 'Your customer profile has been synced to the database.',
+          title: 'Profile Saved Successfully',
+          description: 'Your customer profile and LLM settings have been saved to the database.',
         });
       } else {
         toast({
@@ -556,28 +603,36 @@ export default function SettingsPage() {
                 <FileText className="h-5 w-5" />
                 AI Agent Configuration
               </CardTitle>
-              <CardDescription>Configure your Xano AI Agent for chat assistance</CardDescription>
+              <CardDescription>Configure your AI settings and Xano AI Agent for chat assistance</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="llm_api_key">LLM API Key (Claude, OpenAI, etc.)</Label>
+                <Input 
+                  id="llm_api_key" 
+                  type="password"
+                  value={llmApiKey}
+                  onChange={(e) => setLlmApiKey(e.target.value)}
+                  placeholder="sk-your-api-key-here"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Your LLM API key will be saved securely in Supabase database (not localStorage)
+                </p>
+              </div>
+              
               <div>
                 <Label htmlFor="xano_agent_id">Xano Agent ID</Label>
                 <Input 
                   id="xano_agent_id" 
-                  value={localStorage.getItem('xano_agent_id') || '3'}
-                  onChange={(e) => {
-                    localStorage.setItem('xano_agent_id', e.target.value);
-                    toast({
-                      title: 'Agent ID Updated',
-                      description: 'Your AI agent configuration has been saved.',
-                    });
-                  }}
+                  value={xanoAgentId}
+                  onChange={(e) => setXanoAgentId(e.target.value)}
                   placeholder="3"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Default: 3 (Freight Flow Agent) - Find your Agent ID in Xano Dashboard → AI → Agents
                 </p>
                 <div className="mt-3 p-3 bg-muted/30 rounded-lg text-sm">
-                  <p className="font-semibold text-primary mb-1">Current Agent: Freight Flow Agent (ID: 3)</p>
+                  <p className="font-semibold text-primary mb-1">Current Agent: Freight Flow Agent (ID: {xanoAgentId})</p>
                   <ul className="text-xs space-y-0.5 text-muted-foreground">
                     <li>• Get shipping rate quotes</li>
                     <li>• Book shipments</li>
